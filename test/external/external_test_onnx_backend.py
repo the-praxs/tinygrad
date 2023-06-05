@@ -17,7 +17,7 @@ class TinygradModel(BackendRep):
     self.input_names = input_names
 
   def run(self, inputs: Any, **kwargs: Any) -> Tuple[Any, ...]:
-    real_inputs = {k:v for k,v in zip(self.input_names, inputs)}
+    real_inputs = dict(zip(self.input_names, inputs))
     ret = self.fxn(real_inputs, debug=True)
     return tuple(x.numpy() if isinstance(x, Tensor) else np.array(x) for x in ret.values())
 
@@ -156,23 +156,9 @@ backend_test.exclude('test_tfidfvectorizer_*')
 backend_test.exclude('test_stft_*')
 backend_test.exclude('test_melweightmatrix_*')
 
-# disable model tests for now since they are slow
-if True:
-  for x in backend_test.test_suite:
-    if 'OnnxBackendRealModelTest' in str(type(x)):
-      backend_test.exclude(str(x).split(" ")[0])
-else:
-  # model tests all pass!
-  backend_test.include('test_resnet50')
-  backend_test.include('test_inception_v1')
-  backend_test.include('test_inception_v2')
-  backend_test.include('test_densenet121')
-  backend_test.include('test_shufflenet')
-  backend_test.include('test_squeezenet')
-  backend_test.include('test_bvlc_alexnet')
-  backend_test.include('test_zfnet512')
-  backend_test.include('test_vgg19')
-
+for x in backend_test.test_suite:
+  if 'OnnxBackendRealModelTest' in str(type(x)):
+    backend_test.exclude(str(x).split(" ")[0])
 globals().update(backend_test.enable_report().test_cases)
 
 if __name__ == '__main__':

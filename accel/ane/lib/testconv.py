@@ -11,7 +11,7 @@ def benchmark(ane):
   comp = ane.compile(dat)
 
   st = time.time()
-  for i in range(1000):
+  for _ in range(1000):
     ret = ane.run(comp, tin, tout)
   et = time.time()
   ts = (et-st)

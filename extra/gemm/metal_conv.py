@@ -45,5 +45,5 @@ def tiny_prog(b, c):
   a = tiny_jit(b, c)
   Device[a.device].synchronize()
   return time.perf_counter() - st
-tm = min([tiny_prog(b, c) for _ in range(5)])
+tm = min(tiny_prog(b, c) for _ in range(5))
 print(f"{tm*1e6:9.2f} us, would be {FLOPS*1e-9/tm:9.2f} GFLOPS conv in tinygrad")

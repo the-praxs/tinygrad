@@ -19,13 +19,6 @@ a = get_macho("model.hwx.golden")
 # load commands
 for c in a.headers[0].commands:
   print("command", c[0], c[1])
-  if c[0].cmd == 4:
-    hexdump(c[2])
-    pass
-  if c[0].cmd == 6:
-    print("name:", c[2].decode('utf-8'))
-  if c[0].cmd == 8:
-    print(c[2].decode('utf-8'))
   if c[0].cmd == 25:
     for section in c[2]:
       print(section.segname.strip(b'\0'), section.sectname.strip(b'\0'), hex(section.addr), hex(section.size), "@", hex(c[1].fileoff))
@@ -36,6 +29,12 @@ for c in a.headers[0].commands:
         else:
           print("in file, not dumping 0x%x" % len(section.section_data))
 
+  elif c[0].cmd == 4:
+    hexdump(c[2])
+  elif c[0].cmd == 6:
+    print("name:", c[2].decode('utf-8'))
+  elif c[0].cmd == 8:
+    print(c[2].decode('utf-8'))
 # this parser is wrong (fixed with 64-bit one)
 from macholib import SymbolTable
 sym = SymbolTable.SymbolTable(a)
@@ -127,12 +126,12 @@ for i in range(0, len(f2), 0x300):
   if getenv("PRINTALL"):
     for k in dbg2:
       if k in aneregs:
-        rr = aneregs[k] if k in aneregs else (-1,-1,-1)
+        rr = aneregs.get(k, (-1, -1, -1))
         print("0x%3x %d %2d" % tuple(rr), k, dbg1[k], "->", dbg2[k])
   else:
     for k in dbg1:
       if dbg1[k] != dbg2[k]:
-        rr = aneregs[k] if k in aneregs else (-1,-1,-1)
+        rr = aneregs.get(k, (-1, -1, -1))
         print("0x%3x %d %2d" % tuple(rr), k, dbg1[k], "->", dbg2[k])
 
   print(compare(c1, c2))

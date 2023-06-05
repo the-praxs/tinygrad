@@ -39,7 +39,7 @@ class RNNT:
       not_blank = True
       added = 0
       while not_blank and added < 30:
-        if len(labels) > 0:
+        if labels:
           mask = (mask + 1).clip(0, 1)
           label = Tensor([[labels[-1] if labels[-1] <= 28 else labels[-1] - 1]], requires_grad=False) + 1 - 1
         jhc = self._pred_joint(Tensor(logit.numpy()), label, hc, mask)
@@ -143,8 +143,8 @@ class LSTM:
 
   def do_step(self, x, hc):
     new_hc = [x]
-    for i, cell in enumerate(self.cells):
-      new_hc.append(cell(new_hc[i][:x.shape[0]], hc[i]))
+    new_hc.extend(
+        cell(new_hc[i][:x.shape[0]], hc[i]) for i, cell in enumerate(self.cells))
     return Tensor.stack(new_hc[1:]).realize()
 
 

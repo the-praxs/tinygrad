@@ -40,7 +40,7 @@ def add_boxes(img, prediction):
     return img
   coco_labels = fetch('https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names')
   coco_labels = coco_labels.decode('utf-8').split('\n')
-  height, width = img.shape[0:2]
+  height, width = img.shape[:2]
   scale_factor = 608 / width
   prediction[:,[1,3]] -= (608 - scale_factor * width) / 2
   prediction[:,[2,4]] -= (608 - scale_factor * height) / 2
@@ -78,8 +78,7 @@ def bbox_iou(box1, box2):
   #Union Area
   b1_area = (b1_x2 - b1_x1 + 1)*(b1_y2 - b1_y1 + 1)
   b2_area = (b2_x2 - b2_x1 + 1)*(b2_y2 - b2_y1 + 1)
-  iou = inter_area / (b1_area + b2_area - inter_area)
-  return iou
+  return inter_area / (b1_area + b2_area - inter_area)
 
 def process_results(prediction, confidence=0.9, num_classes=80, nms_conf=0.4):
   prediction = prediction.detach().cpu().numpy()
@@ -143,8 +142,7 @@ def infer(model, img):
   img = np.array(Image.fromarray(img).resize((608, 608)))
   img = img[:,:,::-1].transpose((2,0,1))
   img = img[np.newaxis,:,:,:]/255.0
-  prediction = model.forward(Tensor(img.astype(np.float32)))
-  return prediction
+  return model.forward(Tensor(img.astype(np.float32)))
 
 
 def parse_cfg(cfg):
@@ -232,27 +230,23 @@ class Darknet:
       elif module_type == "maxpool":
         size, stride = int(x["size"]), int(x["stride"])
         module.append(lambda x: x.max_pool2d(kernel_size=(size, size), stride=stride))
-      elif module_type == "upsample":
-        module.append(lambda x: Tensor(x.cpu().numpy().repeat(2, axis=-2).repeat(2, axis=-1)))
       elif module_type == "route":
         x["layers"] = x["layers"].split(",")
-        # Start of route
-        start = int(x["layers"][0])
         # End if it exists
         try:
           end = int(x["layers"][1])
         except:
           end = 0
+        start = int(x["layers"][0])
         if start > 0: start -= index
         if end > 0: end -= index
         module.append(lambda x: x)
-        if end < 0:
-          filters = output_filters[index + start] + output_filters[index + end]
-        else:
-          filters = output_filters[index + start]
-      # Shortcut corresponds to skip connection
+        filters = (output_filters[index + start] + output_filters[index + end]
+                   if end < 0 else output_filters[index + start])
       elif module_type == "shortcut":
         module.append(lambda x: x)
+      elif module_type == "upsample":
+        module.append(lambda x: Tensor(x.cpu().numpy().repeat(2, axis=-2).repeat(2, axis=-1)))
       elif module_type == "yolo":
         mask = list(map(int, x["mask"].split(",")))
         anchors = [int(a) for a in x["anchors"].split(",")]
@@ -276,7 +270,7 @@ class Darknet:
         if conv.bias is not None:
           print("biases")
           print(conv.bias.shape)
-          print(conv.bias.cpu().numpy()[0][0:5])
+          print(conv.bias.cpu().numpy()[0][:5])
         else:
           print("None biases for layer", i)
 
@@ -338,7 +332,7 @@ class Darknet:
     detections, write = None, False
     for i, module in enumerate(modules):
       module_type = (module["type"])
-      if module_type == "convolutional" or module_type == "upsample":
+      if module_type in ["convolutional", "upsample"]:
         for layer in self.module_list[i]:
           x = layer(x)
       elif module_type == "route":

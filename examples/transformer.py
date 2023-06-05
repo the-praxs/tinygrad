@@ -17,15 +17,15 @@ def make_dataset():
   ds = np.array(ds).astype(np.float32)
   ds_X = ds[:, 0:6]
   ds_Y = np.copy(ds[:, 1:])
-  ds_X_train, ds_X_test = ds_X[0:8000], ds_X[8000:]
-  ds_Y_train, ds_Y_test = ds_Y[0:8000], ds_Y[8000:]
+  ds_X_train, ds_X_test = ds_X[:8000], ds_X[8000:]
+  ds_Y_train, ds_Y_test = ds_Y[:8000], ds_Y[8000:]
   return ds_X_train, ds_Y_train, ds_X_test, ds_Y_test
 
 if __name__ == "__main__":
   model = Transformer(10, 6, 2, 128, 4, 32)
   X_train, Y_train, X_test, Y_test = make_dataset()
   lr = 0.003
-  for i in range(10):
+  for _ in range(10):
     optim = Adam(get_parameters(model), lr=lr)
     train(model, X_train, Y_train, optim, 50, BS=64)
     acc, Y_test_preds = evaluate(model, X_test, Y_test, num_classes=10, return_predict=True)

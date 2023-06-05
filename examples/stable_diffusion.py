@@ -171,8 +171,7 @@ class ResBlock:
     emb_out = emb.sequential(self.emb_layers)
     h = h + emb_out.reshape(*emb_out.shape, 1, 1)
     h = h.sequential(self.out_layers)
-    ret = self.skip_connection(x) + h
-    return ret
+    return self.skip_connection(x) + h
 
 class CrossAttention:
   def __init__(self, query_dim, context_dim, n_heads, d_head):
@@ -250,8 +249,7 @@ class SpatialTransformer:
     for block in self.transformer_blocks:
       x = block(x, context=context)
     x = x.permute(0,2,1).reshape(b, c, h, w)
-    ret = self.proj_out(x) + x_in
-    return ret
+    return self.proj_out(x) + x_in
 
 class Downsample:
   def __init__(self, channels):
@@ -426,7 +424,7 @@ class CLIPEncoderLayer:
 
 class CLIPEncoder:
   def __init__(self):
-    self.layers = [CLIPEncoderLayer() for i in range(12)]
+    self.layers = [CLIPEncoderLayer() for _ in range(12)]
 
   def __call__(self, hidden_states, causal_attention_mask):
     for l in self.layers:
@@ -510,9 +508,8 @@ class ClipTokenizer:
     merges = merges[1:49152-256-2+1]
     merges = [tuple(merge.split()) for merge in merges]
     vocab = list(bytes_to_unicode().values())
-    vocab = vocab + [v+'</w>' for v in vocab]
-    for merge in merges:
-      vocab.append(''.join(merge))
+    vocab += [f'{v}</w>' for v in vocab]
+    vocab.extend(''.join(merge) for merge in merges)
     vocab.extend(['<|startoftext|>', '<|endoftext|>'])
     self.encoder = dict(zip(vocab, range(len(vocab))))
     self.bpe_ranks = dict(zip(merges, range(len(merges))))
@@ -522,11 +519,11 @@ class ClipTokenizer:
   def bpe(self, token):
     if token in self.cache:
       return self.cache[token]
-    word = tuple(token[:-1]) + ( token[-1] + '</w>',)
+    word = tuple(token[:-1]) + (f'{token[-1]}</w>', )
     pairs = get_pairs(word)
 
     if not pairs:
-      return token+'</w>'
+      return f'{token}</w>'
 
     while True:
       bigram = min(pairs, key = lambda pair: self.bpe_ranks.get(pair, float('inf')))
@@ -633,8 +630,8 @@ if __name__ == "__main__":
     latent = model.model.diffusion_model(latent, timesteps, context).realize()
 
     unconditional_guidance_scale = 7.5
-    e_t = unconditional_latent + unconditional_guidance_scale * (latent - unconditional_latent)
-    return e_t
+    return unconditional_latent + unconditional_guidance_scale * (
+        latent - unconditional_latent)
 
   timesteps = list(np.arange(1, 1000, 1000//args.steps))
   print(f"running for {timesteps} timesteps")

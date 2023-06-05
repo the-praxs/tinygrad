@@ -18,8 +18,8 @@ class Function:
   def backward(self, *args, **kwargs): raise RuntimeError(f"backward not implemented for {type(self)}")
 
   @classmethod
-  def apply(fxn:Type[Function], *x:Tensor, **kwargs) -> Tensor:
-    ctx = fxn(x[0].device, *x)
+  def apply(cls, *x: Tensor, **kwargs) -> Tensor:
+    ctx = cls(x[0].device, *x)
     ret = Tensor(ctx.forward(*[t.lazydata for t in x], **kwargs), device=ctx.device, requires_grad=ctx.requires_grad)
     if ctx.requires_grad and not Tensor.no_grad: ret._ctx = ctx    # used by autograd engine
     return ret
@@ -347,7 +347,8 @@ class Tensor:
     order = list(range(len(self.shape)))
     order[ax1], order[ax2] = order[ax2], order[ax1]
     return self.permute(order)
-  def flatten(self, start_dim=0): return self.reshape(shape=tuple(list(self.shape[0:start_dim]) + [-1]))
+  def flatten(self, start_dim=0):
+    return self.reshape(shape=tuple(list(self.shape[:start_dim]) + [-1]))
 
   # ***** reduce ops *****
 
@@ -387,7 +388,11 @@ class Tensor:
     assert len(self.shape) >= len(k_), f"can't pool {self.shape} with {k_}"
     s_, d_ = make_pair(stride, len(k_)), make_pair(dilation, len(k_))
     assert len(k_) == len(s_) and len(k_) == len(d_), f"stride/dilation mismatch kernel:{k_} stride:{s_} dilation:{d_}"
-    slc_prefix, prefix, i_ = [(0,x) for x in self.shape[0:-len(k_)]], self.shape[0:-len(k_)], self.shape[-len(k_):]
+    slc_prefix, prefix, i_ = (
+        [(0, x) for x in self.shape[:-len(k_)]],
+        self.shape[:-len(k_)],
+        self.shape[-len(k_):],
+    )
     if any(k > s for k,s in zip(k_, s_)) or any(d != 1 for d in d_):
       o_ = [(i - d * (k-1) - 1)//s + 1 for i,d,k,s in zip(i_, d_, k_, s_)]
       e_ = [math.ceil(k*(i+d) / i) for k,i,d in zip(k_, i_, d_)]  # expands such that we don't need padding
@@ -435,7 +440,11 @@ class Tensor:
   def conv2d(self, weight:Tensor, bias:Optional[Tensor]=None, groups=1, stride=1, dilation=1, padding=0) -> Tensor:
     (bs,cin_), (cout,cin), HW = self.shape[:2], weight.shape[:2], weight.shape[2:]
     assert groups*cin == cin_ and len(self.shape) == len(weight.shape), f"Input Tensor shape {self.shape} does not match the shape of the weights {weight.shape}. ({groups*cin} vs. {cin_})"
-    if isinstance(padding, (tuple,list)): assert len(padding) == 2*len(HW) or len(padding) == len(HW), f"Expected padding of length {2*len(HW)} or {len(HW)}, but got {len(padding)} for tensor of shape {self.shape}"
+    if isinstance(padding, (tuple,list)):
+      assert len(padding) in [
+          2 * len(HW),
+          len(HW),
+      ], f"Expected padding of length {2 * len(HW)} or {len(HW)}, but got {len(padding)} for tensor of shape {self.shape}"
     padding_ = [padding]*2*len(HW) if isinstance(padding, int) else (padding if len(padding) == 2*len(HW) else [p for p in padding for _ in range(2)][::-1])
 
     # conv2d is a pooling op (with padding)
@@ -455,8 +464,8 @@ class Tensor:
 
   def dot(self, w:Tensor) -> Tensor:
     if (n1:=len(self.shape))*(n2:=len(w.shape)) == 0: raise RuntimeError(f"both arguments to matmul need to be at least 1D, but they are {n1}D and {n2}D")
-    x = self.reshape(*self.shape[0:-1], 1, self.shape[-1])
-    w = w.reshape(*w.shape[0:-2], 1, w.shape[-2], w.shape[-1]).transpose(-1, -2)
+    x = self.reshape(*self.shape[:-1], 1, self.shape[-1])
+    w = w.reshape(*w.shape[:-2], 1, w.shape[-2], w.shape[-1]).transpose(-1, -2)
     r = (x*w).sum(-1)
     return r.reshape((*r.shape[:-2], r.shape[-1])) if len(self.shape) == 1 else r
 

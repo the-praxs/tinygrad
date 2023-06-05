@@ -36,8 +36,7 @@ def kstest(l1, l2):
       d = dtemp
   ne = float(n1 * n2) / float(n1 + n2)
   nesq = math.sqrt(ne)
-  prob = ksprob((nesq + 0.12 + 0.11 / nesq) * d)
-  return prob
+  return ksprob((nesq + 0.12 + 0.11 / nesq) * d)
 
 def normal_test(func, shape=(20, 23), alpha=0.05):
   Tensor.manual_seed(1337)

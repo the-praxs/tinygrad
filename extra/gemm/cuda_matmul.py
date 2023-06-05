@@ -18,8 +18,8 @@ a = RawCUDABuffer.fromCPU(na)
 b = RawCUDABuffer.fromCPU(nb)
 c = RawCUDABuffer.fromCPU(np.ones((N,N),dtype=np.float32))
 
-FLOPS = N*N*N*2
-BW = N*N*3*4
+FLOPS = N**2 * N * 2
+BW = N**2 * 3 * 4
 
 prog = CUDAProgram("wmma_example", f"""
 #include <mma.h>
@@ -90,7 +90,11 @@ __global__ void wmma_example({'half' if FLOAT16 else 'float'} *a, {'half' if FLO
 }}
 """)
 
-tm = min([prog([(N//16*32)//4, (N//16)//4], [32, 1], a, b, c, wait=True) for _ in range(20)])
-print(f"{N*N:10d} {tm*1e6:9.2f} us, would be {FLOPS*1e-9/tm:9.2f} GFLOPS matmul, {BW*1e-9/tm:.2f} GB/s")
+tm = min(
+    prog([(N // 16 * 32) // 4, (N // 16) // 4], [32, 1], a, b, c, wait=True)
+    for _ in range(20))
+print(
+    f"{N**2:10d} {tm * 1000000.0:9.2f} us, would be {FLOPS * 1e-09 / tm:9.2f} GFLOPS matmul, {BW * 1e-09 / tm:.2f} GB/s"
+)
 
 np.testing.assert_allclose(na.T.astype(np.float32) @ nb.T.astype(np.float32), c.toCPU().reshape((N,N)).T, atol=1e-2)

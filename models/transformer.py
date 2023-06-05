@@ -54,8 +54,8 @@ class Transformer:
     self.maxlen, self.syms = maxlen, syms
     self.embed = Tensor.scaled_uniform(maxlen+syms, embed_dim, requires_grad=False)
     self.tbs = []
-    for i in range(layers):
-      self.tbs.append(TransformerBlock(embed_dim, num_heads, ff_dim))
+    self.tbs.extend(
+        TransformerBlock(embed_dim, num_heads, ff_dim) for _ in range(layers))
     self.final = Tensor.scaled_uniform(embed_dim, syms)
 
   def forward(self, x):

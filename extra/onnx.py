@@ -30,6 +30,7 @@ ONNXLIMIT = getenv("ONNXLIMIT", -1)
 
 def get_run_onnx(onnx_model: ModelProto):
   def shape_to_tuple(s): return tuple(x.dim_value for x in s.dim)
+
   def buffer_parse(inp: TensorProto) -> Tensor:
     if inp.data_type in (1,10,6,7):
       # TODO: this is shared with below
@@ -54,6 +55,7 @@ def get_run_onnx(onnx_model: ModelProto):
     elif a.type == AttributeProto.FLOATS: return tuple(float(x) for x in a.floats)
     elif a.type == AttributeProto.INTS: return tuple(int(x) for x in a.ints)
     else: raise Exception(f"can't parse {a.type} {a}")
+
   def attribute_to_dict(a: RepeatedCompositeFieldContainer[AttributeProto]): return {x.name:attribute_parse(x) for x in a}
 
   tensors = {}
@@ -78,7 +80,7 @@ def get_run_onnx(onnx_model: ModelProto):
   attribute_dict = {}
   for num,n in enumerate(onnx_model.graph.node):
     attribute_dict[num] = attribute_to_dict(n.attribute)
-  
+
   onnx_model_version = onnx_model.opset_import[0].version
 
   def run_onnx(inputs={}, debug=False):
@@ -114,7 +116,6 @@ def get_run_onnx(onnx_model: ModelProto):
       elif n.op_type == "Sigmoid": ret = inp[0].sigmoid()
       elif n.op_type == "Tanh": ret = inp[0].tanh()
       elif n.op_type == "MatMul": ret = inp[0].matmul(inp[1])
-      # one liners
       elif n.op_type == "Elu": ret = inp[0].elu(alpha=opt.get('alpha', 1.0))
       elif n.op_type == "Concat": ret = inp[0].cat(*inp[1:], dim=opt['axis'])
       elif n.op_type == "Transpose": ret = inp[0].permute(order=opt.get('perm', list(range(len(inp[0].shape))[::-1])))
@@ -128,12 +129,13 @@ def get_run_onnx(onnx_model: ModelProto):
         elif 'value_int' in opt: ret = Tensor(np.array(opt['value_int'], dtype=np.int64), requires_grad=False)
         elif 'value_floats' in opt: ret = Tensor(np.array(opt['value_floats'], dtype=np.float32), requires_grad=False)
         elif 'value_ints' in opt: ret = Tensor(np.array(opt['value_ints'], dtype=np.int64), requires_grad=False)
-        else: raise NotImplementedError(f'Constant not implemented')
+        else:else
+          raise NotImplementedError('Constant not implemented')
       elif n.op_type == "Reshape": ret = inp[0].reshape([int(x) if x != 0 else inp[0].shape[i] for i,x in enumerate(safe_numpy(inp[1]))])
       elif n.op_type == "Resize":
         # TODO: this is handcoded for YOLOv8
         scales = safe_numpy(inp[2])
-        assert all([int(x) == x and x >= 1 for x in scales])
+        assert all(int(x) == x and x >= 1 for x in scales)
         ret = inp[0].reshape([val for pair in zip(inp[0].shape, [1] * len(scales)) for val in pair])
         ret = ret.expand([val for pair in zip(inp[0].shape, [int(x) for x in scales]) for val in pair])
         ret = ret.reshape([x*y for x,y in zip(inp[0].shape, [int(x) for x in scales])])
@@ -165,7 +167,7 @@ def get_run_onnx(onnx_model: ModelProto):
           i = i+s
         continue
       elif n.op_type == "Slice":
-        assert onnx_model_version >= 10, f'only onnx version >= 10 supported for slice'
+        assert onnx_model_version >= 10, 'only onnx version >= 10 supported for slice'
         arg = [(0,x) for x in inp[0].shape]
         starts, ends, axes = inp[1:4]
         assert axes.shape == (1,)
@@ -199,4 +201,5 @@ def get_run_onnx(onnx_model: ModelProto):
         break
 
     return {outp:intermediate_tensors[outp] for outp in output_tensor_names}
+
   return run_onnx

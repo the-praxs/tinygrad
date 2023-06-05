@@ -46,7 +46,7 @@ class TestUtils(unittest.TestCase):
       if isfloat16: model = model.half()
 
       with tempfile.TemporaryDirectory() as tmpdirname:
-        path = tmpdirname + '/testloadmodel.pth'
+        path = f'{tmpdirname}/testloadmodel.pth'
         torch.save(model.state_dict(), path)
         model2 = torch_load(path)
 

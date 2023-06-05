@@ -18,7 +18,7 @@ def do_reshape_split_one(st):
   c = random.randint(0, len(st.shape)-1)
   poss = [n for n in [1,2,3,4,5] if st.shape[c]%n == 0]
   spl = random.choice(poss)
-  shp = st.shape[0:c] + (st.shape[c]//spl, spl) + st.shape[c+1:]
+  shp = st.shape[:c] + (st.shape[c]//spl, spl) + st.shape[c+1:]
   print("st.reshape(", shp, ")")
   st.reshape(shp)
 
@@ -45,7 +45,7 @@ def do_stride(st):
 
 def do_expand(st):
   c = [i for i,s in enumerate(st.shape) if s==1]
-  if len(c) == 0: return
+  if not c: return
   c = random.choice(c)
   expand = tuple(random.choice([2,3,4]) if i==c else s for i,s in enumerate(st.shape))
   print("st.expand(", expand, ")")
@@ -55,6 +55,7 @@ if __name__ == "__main__":
   ops = [do_permute, do_pad, do_shrink, do_reshape_split_one, do_reshape_combine_two, do_stride, do_expand]
   while 1:
     st = CheckingShapeTracker((3, 3, 3))
-    for i in range(8): random.choice(ops)(st)
+    for _ in range(8):
+      random.choice(ops)(st)
     #st.simplify()
     st.assert_same()

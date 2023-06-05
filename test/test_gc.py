@@ -5,7 +5,7 @@ import numpy as np
 from tinygrad.tensor import Tensor
 
 def tensors_allocated():
-  return sum([isinstance(x, Tensor) for x in gc.get_objects()])
+  return sum(isinstance(x, Tensor) for x in gc.get_objects())
 
 class TestGC(unittest.TestCase):
 

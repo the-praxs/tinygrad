@@ -36,12 +36,12 @@ def _ast_binaryops(self:LazyBuffer) -> LazyOp:
   # TODO: this can also support late fusion of BinaryOps, required for test_fold_conv_sgd
   psrcs: List[Tuple[LazyBuffer, LazyBuffer]] = [(k,x) for k,x in zip(real_srcs.keys(), map(get_movementroot_contiguous, real_srcs.keys())) if x.optype == ReduceOps and x.realized is None and prod(k.shape) == prod(x.shape) and len(x.children) <= 1 and len(k.children) <= 1]
   intermediate_shape: Tuple[int, ...] = self.shape
-  if len(psrcs) >= 1 and MERGE_ONE_REDUCE_INTO_ELEMENTWISE:
+  if psrcs and MERGE_ONE_REDUCE_INTO_ELEMENTWISE:
     psrc = psrcs[0] # NOTE: right now we can't handle multiple, as we'd have to check for loop
     if psrc[1].optype == ReduceOps:
       top = _ast_reduceops(psrc[1])
     real_srcs[psrc[0]] = top
-    real_srcs.update({x:x for x in get_buffers(top)})  # the reduce op buffers are not modified
+    real_srcs |= {x:x for x in get_buffers(top)}
 
     # if the ReduceOp is followed by a reshape, we push this reshape before all the ElementwiseOp inputs
     if psrc[0].shape != psrc[1].shape:
@@ -50,7 +50,7 @@ def _ast_binaryops(self:LazyBuffer) -> LazyOp:
 
   # reshape all the late ops into the output shape
   # NOTE: these RESHAPEs will return self if they don't change the shape
-  for x in real_srcs.keys():
+  for x in real_srcs:
     if real_srcs[x] is None: real_srcs[x] = x.movement_op(MovementOps.RESHAPE, intermediate_shape)
   ast = map_buffers(real_srcs, self.op)
   return LazyOp(MovementOps.RESHAPE, (ast, ), self.shape) if intermediate_shape != self.shape else ast
@@ -151,7 +151,10 @@ class LazyBuffer:
         for x in get_buffers(self.op): x.realize()
 
         # HACK: image shape can be wrong, hot cast it back to a normal float
-        if self.optype != MovementOps and isinstance(self.dtype, ImageDType) and (prod(self.shape) != prod(self.dtype.shape) or not any(self.shape[x]%4 == 0 for x in self.st.unit_stride_axes())):
+        if (self.optype != MovementOps and isinstance(self.dtype, ImageDType)
+            and (prod(self.shape) != prod(self.dtype.shape)
+                 or all(self.shape[x] % 4 != 0
+                        for x in self.st.unit_stride_axes()))):
           if self.op.op == MovementOps.RESHAPE:
             # put CAST before the final RESHAPE
             self.op = LazyOp(MovementOps.RESHAPE, (LazyOp(UnaryOps.CAST, self.op.src, dtypes.float32),), self.op.arg)
@@ -191,8 +194,7 @@ class LazyBuffer:
   # NOTE: we also have to copy the numpy array on the way out...otherwise the underlying Tensor could be freed and use after free. improve this?
   def toCPU(self):
     realized = self.cast(dtypes.from_np(self.dtype.np)).contiguous().realize().realized
-    ret = cast(RawBuffer, realized).toCPU().reshape(self.shape)
-    return ret
+    return cast(RawBuffer, realized).toCPU().reshape(self.shape)
 
   def cast(self:LazyBuffer, arg:DType) -> LazyBuffer: return elementwise_op(UnaryOps.CAST, self, arg=arg) if self.dtype != arg else self
   def unary_op(self:LazyBuffer, op:UnaryOps) -> LazyBuffer: return elementwise_op(op, self)
@@ -316,7 +318,12 @@ class _Device:
   def canonicalize(self, device:str) -> str: return (device.split(":", 1)[0].upper() + ((":"+device.split(":", 1)[1]) if ':' in device else '')).replace(":0", "")
   def __getitem__(self, x:str) -> Union[Interpreted, Compiled]: return self._get_device(x.split(":")[0].upper())
   @functools.lru_cache(maxsize=None)  # this class is a singleton, pylint: disable=method-cache-max-size-none
-  def _get_device(self, x:str) -> Union[Interpreted, Compiled]: return [cls for cname, cls in inspect.getmembers(importlib.import_module(f'tinygrad.runtime.ops_{x.lower()}')) if (cname.lower() == x.lower() + "buffer") and x in self._buffers][0]
+  def _get_device(self, x:str) -> Union[Interpreted, Compiled]:
+    return [
+        cls for cname, cls in inspect.getmembers(
+            importlib.import_module(f'tinygrad.runtime.ops_{x.lower()}'))
+        if cname.lower() == f"{x.lower()}buffer" and x in self._buffers
+    ][0]
   def _default_device(self) -> str:
     for device in ["METAL", "CUDA", "GPU"]:
       try:

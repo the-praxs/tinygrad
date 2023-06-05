@@ -51,7 +51,8 @@ print("did one")
 
 REPS = 20
 st = time.perf_counter()
-for i in range(REPS): ireq.infer()
+for _ in range(REPS):
+  ireq.infer()
 et = time.perf_counter() - st
 print(f"{et*1000:.2f} ms {(CNT*N*N*N*REPS*2/et)*1e-9:.2f} GFLOPS")
 

@@ -18,8 +18,9 @@ class TestAssign(unittest.TestCase):
     bb1 = b.lazydata.realized
     a += b
     a.realize()
-    ba2 = a.lazydata.realized
-    if LAZY: assert ba1 == ba2 and ba1 != bb1
+    if LAZY:
+      ba2 = a.lazydata.realized
+      assert ba1 == ba2 and ba1 != bb1
     np.testing.assert_allclose(a.numpy(), (np.arange(N*N)*2).reshape((N,N)))
 
   def test_permuted_assignment(self):
@@ -33,7 +34,7 @@ class TestAssign(unittest.TestCase):
     a += b
     a.realize()
     ba2 = a.lazydata.realized
-    assert ba1 != ba2 and ba1 != bb1
+    assert ba1 not in [ba2, bb1]
     np.testing.assert_allclose(a.numpy(), np.arange(N*N).reshape((N,N)) + np.arange(N*N).reshape((N,N)).transpose(1,0))
 
   def test_post_permuted_assignment(self):

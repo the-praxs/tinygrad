@@ -160,7 +160,7 @@ def uops_to_cstyle(uops:List[UOp], bufs:List[Union[LocalBuffer,LazyBuffer]], lan
       else:
         kk(f"(({lang.smem_prefix if isinstance(bufs[args.i], LocalBuffer) else lang.buffer_prefix}float4*){bufnames[args.i]})[{(args.idx//4).render(render_cl)}] = {vin[0].render()};")
     elif uop == UOps.DEFINE_LOCAL:
-      kk(lang.smem_prefix + f"float {args[0]}[{args[1]}];")
+      kk(f"{lang.smem_prefix}float {args[0]}[{args[1]}];")
     else:
       raise RuntimeError(f"failed to render {uop}")
 
@@ -194,7 +194,8 @@ class CStyleCodegen(Linearizer):
     # NOTE: this might make multiview shapetrackers
     if len(self.lang.gid) and self.first_reduce > len(self.lang.gid):
       num_to_merge = (self.first_reduce - len(self.lang.gid))+1
-      self.reshape_and_permute(lambda x: (prod(x[0:num_to_merge]),)+x[num_to_merge:], None)
+      self.reshape_and_permute(
+          lambda x: (prod(x[:num_to_merge]), ) + x[num_to_merge:], None)
       if DEBUG >= 4: print("reshaped to", self.full_shape, "due to too many global dimensions")
 
     self.linearize()
@@ -208,7 +209,8 @@ class CStyleCodegen(Linearizer):
     if prg in CStyleCodegen.kernel_name_cache: function_name, display_name = CStyleCodegen.kernel_name_cache[prg]
     else:
       CStyleCodegen.kernel_cnt[self.function_name] += 1
-      suffix = f"{'n'+str(CStyleCodegen.kernel_cnt[self.function_name]-1)}" if CStyleCodegen.kernel_cnt[self.function_name] > 1 else ""
+      suffix = (f"{f'n{str(CStyleCodegen.kernel_cnt[self.function_name] - 1)}'}"
+                if CStyleCodegen.kernel_cnt[self.function_name] > 1 else "")
       CStyleCodegen.kernel_name_cache[prg] = function_name, display_name = self.function_name+suffix, self.display_name+colored(suffix, 'black', bright=True)
 
     return ASTRunner(function_name, prg.replace("KERNEL_NAME_PLACEHOLDER", function_name),

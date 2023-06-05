@@ -18,8 +18,7 @@ def get_uncompiled_model2(dataset_size=32, output_size=4):
   x = tf.keras.layers.BatchNormalization()(x)
   x = tf.keras.layers.Dense(32, activation="relu", name="dense_2")(x)
   outputs = tf.keras.layers.Dense(output_size, activation="sigmoid", name="predictions")(x)
-  model = tf.keras.Model(inputs=inputs, outputs=outputs)
-  return model
+  return tf.keras.Model(inputs=inputs, outputs=outputs)
 
 def create_onnx_model(keras_model):
   input_signature = [tf.TensorSpec([1,32], tf.float32, name='x')]
@@ -49,7 +48,7 @@ def compile_onnx_model(onnx_model):
   weights = bytes()
   for name,cl in bufs_to_save.items():
     cprog.append(f"memcpy({name}, weights + {len(weights)//4}, {len(cl)});")
-    weights += bytes(memoryview(cl)[0:len(cl)//4])
+    weights += bytes(memoryview(cl)[:len(cl)//4])
   cprog.append("}")
 
   # write the weights to disk
@@ -84,7 +83,7 @@ def compile_onnx_model(onnx_model):
   # add test weights
   subprocess.check_output(['clang', '-O2', '-lm', '-fPIC', '-x', 'c', '-', '-o', "/tmp/tf_test"], input=prg.encode('utf-8'))
 
-  tinygrad_output = [x for x in the_output.numpy()[0]]
+  tinygrad_output = list(the_output.numpy()[0])
   print("tinygrad:", tinygrad_output, file=sys.stderr)
 
   c_input = ' '.join(["%f" % x for x in the_input[0].numpy()])+"\n"

@@ -178,7 +178,7 @@ def eval_bert():
 
     pred = get_bert_qa_prediction(X, Y, outs)
     print(f"pred: {pred}\nans: {Y['answers']}")
-    f1 += max([f1_score(pred, ans) for ans in Y["answers"]])
+    f1 += max(f1_score(pred, ans) for ans in Y["answers"])
     c += 1
     print(f"f1: {f1/c}, raw: {f1}, c: {c}\n")
 

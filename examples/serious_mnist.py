@@ -36,7 +36,7 @@ class ConvBlock:
     self.inp = inp
     #init weights
     self.cweights = [Tensor.scaled_uniform(filters, inp if i==0 else filters, conv, conv) for i in range(3)]
-    self.cbiases = [Tensor.scaled_uniform(1, filters, 1, 1) for i in range(3)]
+    self.cbiases = [Tensor.scaled_uniform(1, filters, 1, 1) for _ in range(3)]
     #init layers
     self._bn = BatchNorm2d(128)
     self._seb = SqueezeExciteBlock2D(filters)
@@ -56,25 +56,24 @@ class BigConvNet:
     self.weight2 = Tensor.scaled_uniform(128,10)
 
   def parameters(self):
-    if DEBUG: #keeping this for a moment
-      pars = [par for par in optim.get_parameters(self) if par.requires_grad]
-      no_pars = 0
-      for par in pars:
-        print(par.shape)
-        no_pars += np.prod(par.shape)
-      print('no of parameters', no_pars)
-      return pars
-    else:
+    if not DEBUG:
       return optim.get_parameters(self)
+    pars = [par for par in optim.get_parameters(self) if par.requires_grad]
+    no_pars = 0
+    for par in pars:
+      print(par.shape)
+      no_pars += np.prod(par.shape)
+    print('no of parameters', no_pars)
+    return pars
 
   def save(self, filename):
-    with open(filename+'.npy', 'wb') as f:
+    with open(f'{filename}.npy', 'wb') as f:
       for par in optim.get_parameters(self):
         #if par.requires_grad:
         np.save(f, par.cpu().numpy())
 
   def load(self, filename):
-    with open(filename+'.npy', 'rb') as f:
+    with open(f'{filename}.npy', 'rb') as f:
       for par in optim.get_parameters(self):
         #if par.requires_grad:
         try:
@@ -116,10 +115,10 @@ if __name__ == "__main__":
   if len(sys.argv) > 1:
     try:
       model.load(sys.argv[1])
-      print('Loaded weights "'+sys.argv[1]+'", evaluating...')
+      print(f'Loaded weights "{sys.argv[1]}", evaluating...')
       evaluate(model, X_test, Y_test, BS=BS)
     except:
-      print('could not load weights "'+sys.argv[1]+'".')
+      print(f'could not load weights "{sys.argv[1]}".')
 
   if GPU:
     params = optim.get_parameters(model)

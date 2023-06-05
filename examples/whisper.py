@@ -210,7 +210,7 @@ if __name__ == "__main__":
     log_spec = prep_audio(waveform, sample_rate)
     lst = [enc._special_tokens["<|startoftranscript|>"]]
     dat = model.encoder(Tensor(log_spec)).realize()
-    for i in range(50):
+    for _ in range(50):
       out = model.decoder(Tensor([lst]), dat)
       out.realize()
       idx = out[0,-1].numpy().argmax()
@@ -227,11 +227,11 @@ if __name__ == "__main__":
     lst = [enc._special_tokens["<|startoftranscript|>"]]
     total = None
     did_read = False
-    for i in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
+    for _ in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
       while not q.empty() or total is None:
         waveform = q.get()
-        if total is None: total = waveform
-        else: total = np.concatenate([total, waveform], axis=1)
+        total = (waveform if total is None else np.concatenate(
+            [total, waveform], axis=1))
         did_read = True
       if did_read:
         last_total = total.shape[1]

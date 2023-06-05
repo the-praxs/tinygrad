@@ -56,9 +56,9 @@ def get_mnist_data():
   X_train, Y_train, X_test, Y_test = fetch_mnist()
   BS = 32
   num_classes = 10
-  X = Tensor(X_test[0:BS].astype(np.float32))
+  X = Tensor(X_test[:BS].astype(np.float32))
   Y = np.zeros((BS, num_classes), np.float32)
-  Y[range(BS),Y_test[0:BS]] = -1.0*num_classes
+  Y[range(BS), Y_test[:BS]] = -1.0*num_classes
   return X, Tensor(Y)
 
 class TestEnd2End(unittest.TestCase):
