@@ -48,7 +48,7 @@ def InstanceNormalization(x: Tensor, scale: Tensor, bias: Tensor, epsilon=1e-05)
 
 def LayerNormalization(x: Tensor, scale, bias, axis=-1, epsilon=1e-05, stash_type=1):
   assert stash_type == 1, "only float32 is supported"
-  axis = tuple(i for i in range(axis if axis >= 0 else len(x.shape) + axis, len(x.shape)))
+  axis = tuple(range(axis if axis >= 0 else len(x.shape) + axis, len(x.shape)))
   mean = x.mean(axis=axis, keepdim=True)
   return x.layernorm(axis, epsilon).mul(scale).add(bias), mean, (x.sub(mean)).pow(2).mean(axis=axis, keepdim=True).add(epsilon).sqrt().reciprocal()
 
@@ -87,9 +87,8 @@ def AveragePool(X, kernel_shape, auto_pad="NOTSET", ceil_mode=0, count_include_p
   padding_included = _padding(X, pads, auto_pad, axes=pixel_axes).avg_pool2d(kernel_shape, stride=strides)
   if count_include_pad:
     return padding_included
-  else:
-    div = _padding(Tensor.ones(*X.shape), pads, auto_pad, axes=pixel_axes).avg_pool2d(kernel_shape, stride=strides)
-    return padding_included / div
+  div = _padding(Tensor.ones(*X.shape), pads, auto_pad, axes=pixel_axes).avg_pool2d(kernel_shape, stride=strides)
+  return padding_included / div
 
 def MaxPool(X, kernel_shape, auto_pad="NOTSET", ceil_mode=0, dilations=1, pads=None, storage_order=0, strides=1):
   assert ceil_mode == 0 and storage_order == 0
@@ -115,7 +114,7 @@ def Size(data): return prod(data.shape)
 
 # TODO: this doesn't match Tensor.flatten behavior
 def Flatten(input, axis=1):
-  new_shape = (1, -1) if axis == 0 else (prod(input.shape[0:axis]), -1)
+  new_shape = (1, -1) if axis == 0 else (prod(input.shape[:axis]), -1)
   return input.reshape(new_shape)
 
 # TODO: abstract out the broadcast logic in tensor

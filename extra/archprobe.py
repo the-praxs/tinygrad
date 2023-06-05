@@ -27,7 +27,16 @@ def warp_size2(nthread):
   src_buf = CLBuffer(1, dtypes.float32)
   dst_buf = CLBuffer(1, dtypes.int32)
   cl = CLProgram("warp_size2", prg, argdtypes=[None, None, np.int32, np.int32])
-  return min([cl([nthread, 1024, 1], [nthread, 1, 1], src_buf, dst_buf, 10, 3, wait=True) for _ in range(5)])*1e9
+  return (min(
+      cl(
+          [nthread, 1024, 1],
+          [nthread, 1, 1],
+          src_buf,
+          dst_buf,
+          10,
+          3,
+          wait=True,
+      ) for _ in range(5)) * 1e9)
 
 @register_test
 def test_warp_size():
@@ -51,7 +60,9 @@ def reg_count(nthread, ngrp, nreg):
   }}"""
   out_buf = CLBuffer(1, dtypes.float32)
   cl = CLProgram("reg_count", prg, argdtypes=[None, np.int32])
-  return min([cl([nthread, ngrp, 1], [nthread, 1, 1], out_buf, 20, wait=True) for _ in range(10)])*1e9
+  return (min(
+      cl([nthread, ngrp, 1], [nthread, 1, 1], out_buf, 20, wait=True)
+      for _ in range(10)) * 1e9)
 
 @register_test
 def test_reg_count(nthread=1, ngrp=1):
@@ -76,7 +87,9 @@ def buf_cache_hierarchy_pchase(ndata, stride=1, NCOMP=1, steps=65536):
   in_buf = CLBuffer.fromCPU(idx_buf)
   out_buf = CLBuffer(1, dtypes.int32)
   cl = CLProgram("buf_cache_hierarchy_pchase", prg, argdtypes=[None, None, np.int32])
-  return min([cl([1, 1, 1], [1, 1, 1], in_buf, out_buf, steps, wait=True)/steps for _ in range(5)])*1e9
+  return (min(
+      cl([1, 1, 1], [1, 1, 1], in_buf, out_buf, steps, wait=True) / steps
+      for _ in range(5)) * 1e9)
 
 @register_test
 def test_memory_latency():
@@ -101,7 +114,9 @@ def cl_read(sz, niter=1):
   out_buf = CLBuffer(1, dtypes.float32)
   cl = CLProgram("copy", prg)
   # NOTE: if nay of the niters form a local group, this is wrong
-  return min([cl([sz//16, niter, 1], [1, 1, 1], in_buf, out_buf, wait=True) for _ in range(10)])*1e9
+  return (min(
+      cl([sz // 16, niter, 1], [1, 1, 1], in_buf, out_buf, wait=True)
+      for _ in range(10)) * 1e9)
 
 @register_test
 def test_read_bandwidth():
@@ -120,7 +135,7 @@ def gflops(niter=4, nroll=4, ngroups=4096):
       float{NCOMP} y = (float{NCOMP})({",".join(f"get_local_id(1)+{i}" for i in range(NCOMP))});
 
       for (int i = 0; i < {niter}; i++) {{
-        {''.join(['x = mad(y, y, x); y = mad(x, x, y);'+chr(10)]*nroll)}
+        {''.join([f'x = mad(y, y, x); y = mad(x, x, y);{chr(10)}'] * nroll)}
       }}
 
       out_buf[get_global_id(0) >> 31] = {'+'.join(f"y.s{'0123456789abcdef'[i]}" for i in range(NCOMP))};
@@ -129,7 +144,9 @@ def gflops(niter=4, nroll=4, ngroups=4096):
   cl = CLProgram("gflops", prg, options="-cl-mad-enable -cl-fast-relaxed-math")
   FLOPS = NCOMP*2*2 * niter * nroll * ngroups * 32
   # NOTE: if nay of the niters form a local group, this is wrong
-  return FLOPS/(min([cl([32, ngroups, 1], [32, 1, 1], out_buf, wait=True) for _ in range(10)])*1e9)
+  return FLOPS / (min(
+      cl([32, ngroups, 1], [32, 1, 1], out_buf, wait=True)
+      for _ in range(10)) * 1e9)
 
 @register_test
 def test_gflops():

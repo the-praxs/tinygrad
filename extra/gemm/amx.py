@@ -93,7 +93,11 @@ AMX.clr(exit)
 
 entry.branch(loop_1._block)
 loop_1.branch(loop_1_exit._block)
-loop_1_exit.cbranch(loop_1_exit.icmp_unsigned("==", yp, int_const(N*N)), exit._block, loop_1._block)
+loop_1_exit.cbranch(
+    loop_1_exit.icmp_unsigned("==", yp, int_const(N**2)),
+    exit._block,
+    loop_1._block,
+)
 exit.ret(int_const(0))
 
 cfunc = LLVM().exec(module, bufs, N**2)
@@ -167,14 +171,14 @@ cfunc = LLVM().exec(module, bufs, N**3 * 2)
 
 
 times = []
-for i in range(50):
+for _ in range(50):
   st = time.monotonic()
   cfunc(*[x._buf for x in bufs])
   et = time.monotonic() - st
   times.append(et)
 
 print(f"{min(times)*1000:.2f} ms min time, {np.median(times)*1000:.2f} ms median time")
-print("%.2f GB/s" % ((N*N*4*1e-9)/min(times)))
+print("%.2f GB/s" % (N**2 * 4 * 1e-9 / min(times)))
 
 print(c.toCPU().astype(np.int64)[:sn.shape[0]])
 print(sn.astype(np.int64))

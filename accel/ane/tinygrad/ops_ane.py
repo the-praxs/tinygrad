@@ -28,12 +28,12 @@ def compile_relu(ane, sz):
   return compile_wrapper(ane, bytes(dat))
 
 class ReLU(Function):
-  def forward(ctx, input):
-    ret = ctx.ane.tensor(input.shape)
-    ctx.ane.run(compile_relu(ctx.ane, input.sz), input, ret)
+  def forward(self, input):
+    ret = self.ane.tensor(input.shape)
+    self.ane.run(compile_relu(self.ane, input.sz), input, ret)
     return ret
 
-  def backward(ctx, grad_output):
+  def backward(self, grad_output):
     return 0
 
 register('relu', ReLU, device=Device.ANE)

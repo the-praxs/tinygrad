@@ -91,7 +91,7 @@ if __name__ == "__main__":
     loss_g, loss_d = 0.0, 0.0
     for _ in range(n_steps):
       data_real = make_batch(images_real)
-      for step in range(k):  # Try with k = 5 or 7.
+      for _ in range(k):
         noise = Tensor.randn(batch_size, 128)
         data_fake = generator.forward(noise).detach()
         loss_d += train_discriminator(optim_d, data_real, data_fake)

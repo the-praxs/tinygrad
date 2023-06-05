@@ -47,7 +47,7 @@ def my_unpickle(fb0):
   key_prelookup = defaultdict(list)
   def _rebuild_tensor_v2(storage, storage_offset, size, stride, requires_grad, backward_hooks, metadata=None):
     #print(storage, storage_offset, size, stride, requires_grad, backward_hooks, metadata)
-    ident, storage_type, obj_key, location, obj_size = storage[0:5]
+    ident, storage_type, obj_key, location, obj_size = storage[:5]
     assert ident == 'storage'
     assert prod(size) <= (obj_size - storage_offset)
 
@@ -64,7 +64,6 @@ def my_unpickle(fb0):
     pass
 
   class Dummy: pass
-
   class MyPickle(pickle.Unpickler):
     def find_class(self, module, name):
       #print(module, name)
@@ -168,7 +167,7 @@ def fake_torch_load(b0):
   # convert it to a file
   fb0 = io.BytesIO(b0)
 
-  if b0[0:2] == b"\x50\x4b":
+  if b0[:2] == b"\x50\x4b":
     return fake_torch_load_zipped(fb0)
 
   # skip three junk pickles

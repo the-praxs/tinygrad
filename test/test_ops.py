@@ -381,7 +381,7 @@ class TestOps(unittest.TestCase):
 
   def test_slice_in_bounds_1dim(self):
     helper_test_op([(3)], lambda x: x[1:3], lambda x: x[1:3])
-    helper_test_op([(3)], lambda x: x[0:2], lambda x: x[0:2])
+    helper_test_op([(3)], lambda x: x[:2], lambda x: x[:2])
     helper_test_op([(3)], lambda x: x[-2:2], lambda x: x[-2:2])
 
   def test_slice_on_0dim_tensor(self):
@@ -410,7 +410,7 @@ class TestOps(unittest.TestCase):
     helper_test_op([(3,3,3)], lambda x: x[1:2, 1:2, None, -1], lambda x: x[1:2, 1:2, None, -1])
 
   def test_slice_one_endpoint_out_of_bounds(self):
-    helper_test_op([(3,3,3)], lambda x: x[0:4], lambda x: x[0:4])
+    helper_test_op([(3,3,3)], lambda x: x[:4], lambda x: x[:4])
     helper_test_op([(3,3,3)], lambda x: x[-6:4], lambda x: x[-6:4])
     helper_test_op([(3,3,3)], lambda x: x[1:50], lambda x: x[1:50])
     helper_test_op([(3,3,3)], lambda x: x[1:50, 1:2, -1], lambda x: x[1:50, 1:2, -1])
@@ -921,7 +921,7 @@ class TestOps(unittest.TestCase):
   def test_double_slice(self):
     helper_test_op([(4,4)], lambda x: x[:, 1:2][1:2])
     helper_test_op([(4,4)], lambda x: x[1:3][1:2])
-    helper_test_op([(4,4)], lambda x: x[:, 1:2][0:1])
+    helper_test_op([(4,4)], lambda x: x[:, 1:2][:1])
     helper_test_op([(4,4)], lambda x: x[:, 1:2][:, 0:1])
 
 if __name__ == '__main__':

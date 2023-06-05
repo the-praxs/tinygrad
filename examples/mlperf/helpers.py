@@ -41,12 +41,12 @@ def _is_punctuation(char):
   return unicodedata.category(char).startswith("P")
 
 def _is_whitespace(char):
-  if char == " " or char == "\t" or char == "\n" or char == "\r":
+  if char in [" ", "\t", "\n", "\r"]:
     return True
   return unicodedata.category(char) == "Zs"
 
 def _is_control(char):
-  if char == "\t" or char == "\n" or char == "\r":
+  if char in ["\t", "\n", "\r"]:
     return False
   return unicodedata.category(char).startswith("C")
 
@@ -67,10 +67,10 @@ def _run_split_on_punc(text):
   return ["".join(x) for x in output]
 
 def _run_strip_accents(text):
-  output = []
-  for char in unicodedata.normalize("NFD", text):
-    if unicodedata.category(char) != "Mn":
-      output.append(char)
+  output = [
+      char for char in unicodedata.normalize("NFD", text)
+      if unicodedata.category(char) != "Mn"
+  ]
   return "".join(output)
 
 def _clean_text(text):
@@ -139,7 +139,7 @@ def get_bert_qa_prediction(features, example, start_end_logits):
           continue
         if not feature["token_is_max_context"].get(start_index, False):
           continue
-        if end_index < start_index or end_index - start_index + 1 > 30:
+        if end_index < start_index or end_index - start_index > 29:
           continue
 
         prelim_predictions.append({

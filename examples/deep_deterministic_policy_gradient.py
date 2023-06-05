@@ -22,9 +22,7 @@ class Actor:
     out = state.dot(self.l1).relu()
     out = out.dot(self.l2).relu()
     out = out.dot(self.mu).tanh()
-    output = out * upper_bound
-
-    return output
+    return out * upper_bound
 
 
 class Critic:

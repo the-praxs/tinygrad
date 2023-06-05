@@ -77,7 +77,7 @@ class TestInferenceMinKernels(unittest.TestCase):
     img = Tensor.randn(1, 3, 224, 224)
     with CLCache(223): # NOTE: this is way too high
       out = model.forward(img)
-      assert len(GlobalCounters.cache) == 0, f"ViT prerealized?"
+      assert len(GlobalCounters.cache) == 0, "ViT prerealized?"
       out.realize()
 
   def test_llama(self):
@@ -190,7 +190,11 @@ class TestOpt(unittest.TestCase):
       # TODO: this should be 4, but the sum output child stays around
       # with pushing_permutes it can be 3
       # TODO: broken with optim fixes
-      assert len(GlobalCounters.cache) in [4,5,6], f"optimizer didn't fold conv-backward SGD, got {len(GlobalCounters.cache)}"
+      assert len(GlobalCounters.cache) in {
+          4,
+          5,
+          6,
+      }, f"optimizer didn't fold conv-backward SGD, got {len(GlobalCounters.cache)}"
     Tensor.training = False
 
   def test_fold_2convs_sgd(self):

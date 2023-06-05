@@ -14,7 +14,8 @@ class TestCopy(unittest.TestCase):
       fxn, args = GlobalCounters.cache[0]
       GlobalCounters.reset()
       def run(): return fxn(args, force_wait=True)
-      ct = min([run() for _ in range(10)])
+
+      ct = min(run() for _ in range(10))
       mb = prod(t.shape)*t.dtype.itemsize*2*1e-6
       print(f"{mb*1e3:.2f} kB, {ct*1e3:.2f} ms, {mb/ct:.2f} MB/s")
       pts.append((mb, mb/ct))

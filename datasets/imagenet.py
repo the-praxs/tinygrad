@@ -16,8 +16,7 @@ def get_train_files():
 
 @functools.lru_cache(None)
 def get_val_files():
-  val_files = glob.glob(str(BASEDIR / "val/*/*"))
-  return val_files
+  return glob.glob(str(BASEDIR / "val/*/*"))
 
 #rrc = transforms.RandomResizedCrop(224)
 import torchvision.transforms.functional as F
@@ -25,8 +24,7 @@ def image_load(fn):
   img = Image.open(fn).convert('RGB')
   img = F.resize(img, 256, Image.BILINEAR)
   img = F.center_crop(img, 224)
-  ret = np.array(img)
-  return ret
+  return np.array(img)
 
 def iterate(bs=32, val=True, shuffle=True):
   files = get_val_files() if val else get_train_files()

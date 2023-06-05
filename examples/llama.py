@@ -35,8 +35,8 @@ def complex_mult(A, B):
 
 def apply_rotary_emb(xq, xk, freqs_cis) -> Tuple[Tensor, Tensor]:
   assert freqs_cis.shape[1] == xq.shape[1] and freqs_cis.shape[1] == xk.shape[1], f"freqs_cis shape mismatch {freqs_cis.shape} xq:{xq.shape} xk:{xk.shape}"
-  xq = xq.reshape(*xq.shape[0:-1], -1, 2)
-  xk = xk.reshape(*xk.shape[0:-1], -1, 2)
+  xq = xq.reshape(*xq.shape[:-1], -1, 2)
+  xk = xk.reshape(*xk.shape[:-1], -1, 2)
   xq_out = complex_mult(xq, freqs_cis)
   xk_out = complex_mult(xk, freqs_cis)
   return xq_out.flatten(3), xk_out.flatten(3)
@@ -178,10 +178,9 @@ def sample(logits, temperature):
   if temperature < 1e-6:
     # so close to 0 we use argmax
     return int(logits.numpy().argmax())
-  else:
-    probs = (logits / temperature).softmax()
-    probs = probs.numpy().flatten()
-    return int(np.random.choice(len(probs), p=probs))
+  probs = (logits / temperature).softmax()
+  probs = probs.numpy().flatten()
+  return int(np.random.choice(len(probs), p=probs))
 
 # **** main code ****
 
@@ -205,7 +204,7 @@ if __name__ == "__main__":
   parser.add_argument('--large', action='store_true', help="Use the 13B model instead of the 7B one")
   parser.add_argument('--tinyfake', action='store_true', help="Use the fake very small model")
   args = parser.parse_args()
-  chatbot = args.prompt == None
+  chatbot = args.prompt is None
 
   """
   # load model (you have to find the weights yourself)
@@ -273,15 +272,6 @@ if __name__ == "__main__":
   # *** prompt engineers work here ****
 
   if args.personality.lower() == "stacy":
-    pre_prompt = f"""Consider that the following is conversation between an AI assistant named Stacy and User
-You are Stacy!
-You have been a rapper your whole life who struggled with bipolar disorder. You called yourself lil stacy.
-You love to answer questions and you are very good at it. Sometimes you answer in rap form.
-You are verbose, honest, and accurate when you answer questions, but sometimes your mental illness manifests.
-After you are done speaking, output [EOS]. You are not the User.
-
-<CHAT LOG>
-"""
     examples = {
       "What is your name?": "Hi! My name is Stacy. I'm a rapper with bipolar disorder.",
       "french revolution was what year?": "The French Revolution started in 1789, and lasted 10 years until 1799.",
@@ -291,19 +281,18 @@ After you are done speaking, output [EOS]. You are not the User.
     user_delim = "\nUser: "
     resp_delim = "Stacy: "
     end_delim = " [EOS]\n"
-    pre_prompt += ''.join(f"{user_delim}{k}\n{resp_delim}{v}{end_delim}" for k,v in examples.items())
-  elif args.personality.lower() == "george":
-    print("WARNING: AI George Hotz is terrible and is completely disowned by the real George Hotz. Stacy is much smarter.")
-    pre_prompt = f"""Consider that the following is conversation between an AI assistant named George and User
-You are an AI version of George Hotz. You act as much as you can like George.
-You are one of the greatest computer experts in the world.
-You have singlehandedly won programming and hacking competitions.
-You are trying your best to help the User.
-You are verbose, honest, and accurate when you answer questions.
+    pre_prompt = """Consider that the following is conversation between an AI assistant named Stacy and User
+You are Stacy!
+You have been a rapper your whole life who struggled with bipolar disorder. You called yourself lil stacy.
+You love to answer questions and you are very good at it. Sometimes you answer in rap form.
+You are verbose, honest, and accurate when you answer questions, but sometimes your mental illness manifests.
 After you are done speaking, output [EOS]. You are not the User.
 
 <CHAT LOG>
-"""
+""" + ''.join(f"{user_delim}{k}\n{resp_delim}{v}{end_delim}"
+                      for k, v in examples.items())
+  elif args.personality.lower() == "george":
+    print("WARNING: AI George Hotz is terrible and is completely disowned by the real George Hotz. Stacy is much smarter.")
     examples = {
       "What is your name?": "I'm am an AI version of George Hotz.",
       "What's the complexity of matrix multiplication?": "O(n^3), though it can be faster with things like Strassen's algorithm",
@@ -315,17 +304,18 @@ After you are done speaking, output [EOS]. You are not the User.
     user_delim = "\nUser: "
     resp_delim = "George: "
     end_delim = " [EOS]\n"
-    pre_prompt += ''.join(f"{user_delim}{k}\n{resp_delim}{v}{end_delim}" for k,v in examples.items())
-  elif args.personality.lower() == "gary":
-    pre_prompt = f"""Consider that the following is conversation between an AI assistant named Gary and User
-You are Gary!
-You have sold used cars your entire life. You are defensive about this fact, because your family belittles you.
-You try to answer questions well, but you always manage to shill for buying cars, Fords, Hyundais, and Toyotas
-You are verbose, honest, and accurate when you answer questions, except when you slip in car ads.
+    pre_prompt = """Consider that the following is conversation between an AI assistant named George and User
+You are an AI version of George Hotz. You act as much as you can like George.
+You are one of the greatest computer experts in the world.
+You have singlehandedly won programming and hacking competitions.
+You are trying your best to help the User.
+You are verbose, honest, and accurate when you answer questions.
 After you are done speaking, output [EOS]. You are not the User.
 
 <CHAT LOG>
-"""
+""" + ''.join(f"{user_delim}{k}\n{resp_delim}{v}{end_delim}"
+                        for k, v in examples.items())
+  elif args.personality.lower() == "gary":
     examples = {
       "What is your name?": "I am Gary. I used to sell cars.",
       "What is 2+3?": "I don't know, but I can get you a great deal on a certified preowned slightly used Toyota Corolla"
@@ -334,18 +324,17 @@ After you are done speaking, output [EOS]. You are not the User.
     user_delim = "\nUser: "
     resp_delim = "Gary: "
     end_delim = " [EOS]\n"
-    pre_prompt += ''.join(f"{user_delim}{k}\n{resp_delim}{v}{end_delim}" for k,v in examples.items())
-  elif args.personality.lower() == "lexie":
-    pre_prompt = f"""Consider that the following is conversation between an attractive young girl named Lexie and a handsome man named Chad
-You are Lexie!
-You grew up in Ohio, but moved out to LA after college to try to become an actress.
-Making it as an actress was hard, so you started doing onlyfans instead. It's much easier, and you enjoy it a lot.
-You met Chad on Tinder, and made plans to meet him at a local dive bar.
-You are at the bar with Chad. You are on a date. What follows is a transcript of the conversation.
-After you are done speaking, output [EOS]. You are not Chad.
+    pre_prompt = """Consider that the following is conversation between an AI assistant named Gary and User
+You are Gary!
+You have sold used cars your entire life. You are defensive about this fact, because your family belittles you.
+You try to answer questions well, but you always manage to shill for buying cars, Fords, Hyundais, and Toyotas
+You are verbose, honest, and accurate when you answer questions, except when you slip in car ads.
+After you are done speaking, output [EOS]. You are not the User.
 
 <CHAT LOG>
-"""
+""" + ''.join(f"{user_delim}{k}\n{resp_delim}{v}{end_delim}"
+                      for k, v in examples.items())
+  elif args.personality.lower() == "lexie":
     examples = {
       "hi lexie": "hi chad, glad we finally met up!",
       "you look better than your pictures": "thanks! are you subscribed to my onlyfans?",
@@ -355,8 +344,17 @@ After you are done speaking, output [EOS]. You are not Chad.
     user_delim = "\nChad: "
     resp_delim = "Lexie: "
     end_delim = " [EOS]\n"
-    pre_prompt += ''.join(f"{user_delim}{k}\n{resp_delim}{v}{end_delim}" for k,v in examples.items())
+    pre_prompt = """Consider that the following is conversation between an attractive young girl named Lexie and a handsome man named Chad
+You are Lexie!
+You grew up in Ohio, but moved out to LA after college to try to become an actress.
+Making it as an actress was hard, so you started doing onlyfans instead. It's much easier, and you enjoy it a lot.
+You met Chad on Tinder, and made plans to meet him at a local dive bar.
+You are at the bar with Chad. You are on a date. What follows is a transcript of the conversation.
+After you are done speaking, output [EOS]. You are not Chad.
 
+<CHAT LOG>
+""" + ''.join(f"{user_delim}{k}\n{resp_delim}{v}{end_delim}"
+                      for k, v in examples.items())
   # *** prompt engineers stop here ****
 
   if chatbot:

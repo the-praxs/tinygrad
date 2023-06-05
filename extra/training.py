@@ -17,7 +17,7 @@ def train(model, X_train, Y_train, optim, steps, BS=128, lossfn=sparse_categoric
         transform=lambda x: x, target_transform=lambda x: x, noloss=False):
   Tensor.training = True
   losses, accuracies = [], []
-  for i in (t := trange(steps, disable=getenv('CI', False))):
+  for _ in (t := trange(steps, disable=getenv('CI', False))):
     samp = np.random.randint(0, X_train.shape[0], size=(BS))
     x = Tensor(transform(X_train[samp]), requires_grad=False)
     y = target_transform(Y_train[samp])

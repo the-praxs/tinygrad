@@ -35,7 +35,9 @@ class TritonASTKernel(ASTKernel):
       if buf_index not in self.loaded:
         idx, valid = self.sts[buf_index].expr_idxs()
         valid_expr = valid.render().replace("&&", "*1*")
-        self.kernel.append(self.kernel_prefix + f"  val{buf_index} = tl.where({valid_expr}, tl.load(data{buf_index} + {idx.render()}, mask={valid_expr}), 0.0)")
+        self.kernel.append(
+            f"{self.kernel_prefix}  val{buf_index} = tl.where({valid_expr}, tl.load(data{buf_index} + {idx.render()}, mask={valid_expr}), 0.0)"
+        )
         self.loaded.add(buf_index)
       return f"val{buf_index}"
     if isinstance(x.op, ReduceOps) and not do_reduce: return acc
@@ -67,17 +69,19 @@ class TritonASTKernel(ASTKernel):
       final_dimension = len(self.output_shape)-MAX_OUTPUT_SHAPE
       for i in range(final_dimension-1, -1, -1):
         self.kernel += [f"  idx{i} = idx{final_dimension} % {self.output_shape[i]}", f"  idx{final_dimension} = idx{final_dimension} // {self.output_shape[i]}"]
-      self.output_shape = [prod(self.output_shape[0:final_dimension+1])] + list(self.output_shape[final_dimension+1:])
+      self.output_shape = [prod(self.output_shape[:final_dimension + 1])] + list(
+          self.output_shape[final_dimension + 1:])
       if DEBUG >= 3: print(f"replaced output shape with {self.output_shape}")
-    elif len(self.output_shape) == 0: self.output_shape = [1]
+    elif not self.output_shape: self.output_shape = [1]
 
     if self.reduceop:
       full_shape = [st.shape for st in self.sts if st.shape != self.sts[0].shape]
-      full_shape = self.sts[0].shape if len(full_shape) == 0 else full_shape[0]
+      full_shape = self.sts[0].shape if not full_shape else full_shape[0]
       self.kernel += [f"  acc = {TritonASTKernel.start_for_op[self.reduceop.op]}"]
       self.kernel += [("  "*(i-self.first_reduce)+f"  for idx{i} in range(0, {full_shape[i]}):") for i in range(self.first_reduce, self.shape_len)]
       self.kernel_prefix =  "  "*(self.shape_len - self.first_reduce)
-      self.kernel.append("  "+self.kernel_prefix+self.ast_parse(self.reduceop, "acc", True))
+      self.kernel.append(f"  {self.kernel_prefix}" +
+                         self.ast_parse(self.reduceop, "acc", True))
       self.kernel_prefix =  ""
 
     code = self.ast_parse(self.ast, "acc")
@@ -99,6 +103,7 @@ class TritonASTKernel(ASTKernel):
     def runner(*bufs):
       GlobalCounters.log_kernel(self.info.flops, mem_estimate)
       return program[tuple(self.output_shape[::-1])](*[x.cuda for x in bufs], stream=stream.handle)
+
     self.func_cache[self.key] = runner
     return runner
 

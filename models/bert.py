@@ -45,9 +45,7 @@ class Bert:
     extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
 
     embedding_output = self.embeddings(input_ids, token_type_ids)
-    encoder_outputs = self.encoder(embedding_output, extended_attention_mask)
-
-    return encoder_outputs
+    return self.encoder(embedding_output, extended_attention_mask)
 
 class BertEmbeddings:
   def __init__(self, hidden_size, max_position_embeddings, type_vocab_size, vocab_size,  hidden_dropout_prob):
@@ -89,8 +87,7 @@ class BertLayer:
   def __call__(self, hidden_states, attention_mask):
     attention_output = self.attention(hidden_states, attention_mask)
     intermediate_output = self.intermediate(attention_output)
-    layer_output = self.output(intermediate_output, attention_output)
-    return layer_output
+    return self.output(intermediate_output, attention_output)
 
 class BertOutput:
   def __init__(self, hidden_size, intermediate_size, hidden_dropout_prob):
@@ -125,8 +122,7 @@ class BertAttention:
 
   def __call__(self, hidden_states, attention_mask):
     self_output = self.self(hidden_states, attention_mask)
-    attention_output = self.output(self_output, hidden_states)
-    return attention_output
+    return self.output(self_output, hidden_states)
 
 class BertSelfAttention:
   def __init__(self, hidden_size, num_attention_heads, attention_probs_dropout_prob):

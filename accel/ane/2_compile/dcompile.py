@@ -5,7 +5,7 @@ import networkx as nx
 import pylab as plt
 from networkx.drawing.nx_pydot import read_dot
 
-ret = os.system("./a.out "+sys.argv[1]+" debug")
+ret = os.system(f"./a.out {sys.argv[1]} debug")
 assert(ret == 0)
 
 df = "debug/model.hwx.zinir_graph_after_reg_spill.dot"

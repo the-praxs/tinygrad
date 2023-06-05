@@ -18,7 +18,7 @@ def check_no_mul(test, var):
 @functools.lru_cache(maxsize=None)
 def to_shape_strides(shape:Tuple[int, ...], strides:Tuple[int, ...]) -> List[Tuple[int, int]]:
   assert len(shape) == len(strides)
-  ret = [(shape[0], strides[0])] if len(shape) > 0 else []
+  ret = [(shape[0], strides[0])] if shape else []
   for i in range(1, len(shape)):
     if (strides[i] != 0 and ret[-1][1] == shape[i]*strides[i]) or ret[-1][0] == 1 or (strides[i] == 0 and ret[-1][1] == 0):
       ret[-1] = (ret[-1][0] * shape[i], strides[i])
@@ -129,15 +129,14 @@ class ShapeTracker:
     return ret
 
   def _expr_idx(self, idx, valid):
-    for v in self.views[0:-1][::-1]:
+    for v in self.views[:-1][::-1]:
       valid = v.expr_node_mask(idx, valid)
       idx = v.expr_node(idx)
     return idx, valid
 
   def simplify(self):
     if len(self.views) >= 2:
-      new_view = merge_views(self.views[-2], self.views[-1])
-      if new_view:
+      if new_view := merge_views(self.views[-2], self.views[-1]):
         if DEBUG >= 4: print(f"st simplify : {self.views[-2]} + {self.views[-1]} = {new_view}")
         self.views = self.views[:-2] + [new_view]
         self.simplify()
@@ -158,7 +157,7 @@ class ShapeTracker:
   # *** under this line are the movement ops ***
 
   def __unsafe_resize(self, arg: Tuple[Tuple[int, int], ...], mask=None):
-    offset = sum([self.views[-1].strides[i]*x for i,(x,_) in enumerate(arg)])
+    offset = sum(self.views[-1].strides[i]*x for i,(x,_) in enumerate(arg))
     if self.views[-1].mask:
       # move the old mask
       nmask = tuple((max(mx-ax, 0), min(my-ax, ay-ax)) for (mx,my),(ax,ay) in zip(self.views[-1].mask, arg))
@@ -205,15 +204,16 @@ class ShapeTracker:
 
     view = View(new_shape, strides_for_shape(new_shape))
     if self.contiguous: self.views[-1] = view   # NOTE: if it's contiguous it can't have an offset
-    else:
-      if (merged_view := merge_views(self.views[-1], view)) is not None: self.views[-1] = merged_view
-      else:
-        if DEBUG >= 4: print(f"WARNING: creating new view with reshape {self} -> {new_shape}")
-        self.views.append(view)
+    elif (merged_view := merge_views(self.views[-1], view)) is None:
+      if DEBUG >= 4: print(f"WARNING: creating new view with reshape {self} -> {new_shape}")
+      self.views.append(view)
+
+    else: self.views[-1] = merged_view
 
   def permute(self, axis: Tuple[int, ...]):
     assert all(isinstance(x, int) and x >= 0 and x < len(self.shape) for x in axis), f"invalid permute {axis} for {self.shape}"
-    assert len(set(axis)) == len(axis) and len(axis) == len(self.shape), f"can't permute {self.shape} with {axis}"
+    assert (len(set(axis)) == len(axis) == len(
+        self.shape)), f"can't permute {self.shape} with {axis}"
     self.views[-1] = View(tuple(self.shape[a] for a in axis), tuple(self.views[-1].strides[a] for a in axis), self.views[-1].offset, tuple(self.views[-1].mask[a] for a in axis) if self.views[-1].mask is not None else None)
 
   # except for the negative case, you can build this from the others. invertible in the negative case
@@ -221,7 +221,9 @@ class ShapeTracker:
     assert all(isinstance(x, int) and x != 0 for x in mul), f"invalid stride {mul} for {self.shape}"
     strides = tuple(z*m for z,m in zip(self.views[-1].strides, mul))
     new_shape = tuple((s+(abs(m)-1))//abs(m) for s,m in zip(self.shape, mul))
-    offset = sum([(s-1)*z for s,z,m in zip(self.shape, self.views[-1].strides, mul) if m < 0])
+    offset = sum((s - 1) * z
+                 for s, z, m in zip(self.shape, self.views[-1].strides, mul)
+                 if m < 0)
     mask = tuple((((mx if m > 0 else s-my)+(abs(m)-1))//abs(m), ((my if m > 0 else s-mx)+(abs(m)-1))//abs(m)) for (mx,my),s,m in zip(self.views[-1].mask, self.shape, mul)) if self.views[-1].mask is not None else None
     self.views[-1] = View(new_shape, strides, self.views[-1].offset + offset, mask)
 

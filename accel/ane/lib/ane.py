@@ -122,9 +122,7 @@ class ANETensor:
     assert(data is not None)
     #print(hex(addressof(data.contents)))
     buf = np.ctypeslib.as_array(data, shape=(self.sz,))
-    ret = np.frombuffer(buf, dtype=self.dtype)
-    #print(ret.data)
-    return ret
+    return np.frombuffer(buf, dtype=self.dtype)
 
 class ANE:
   def __init__(self):
@@ -168,7 +166,7 @@ class ANE:
     add = [0x30, 0x1d4, 0x220, 0x29c, 0x2f0, 0x30c, 0x32c]
     lens = [244, 60, 108, 68, 12, 16, 24]
     ptr = 0x2b
-    ddat = dat[0:0x28]
+    ddat = dat[:0x28]
     for a, pm in zip(add, lens):
       #assert pm == dat[ptr]
       ddat += b"\x00" * (a-len(ddat))
@@ -203,7 +201,7 @@ if __name__ == "__main__":
   tind = tin.data()
   toutd = tout.data()
 
-  tind[0:4] = [-1,1,-2,2]
+  tind[:4] = [-1,1,-2,2]
   print("** before **")
   print(tind)
   print(toutd)
@@ -214,7 +212,7 @@ if __name__ == "__main__":
   mdf = ane.pack(dd, md)
   assert(md == mdf)
 
-  comp = ane.compile(dat) 
+  comp = ane.compile(dat)
   ret = ane.run(comp, tin, tout)
   print("** after **")
   print(tind)

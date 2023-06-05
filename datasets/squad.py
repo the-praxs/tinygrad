@@ -86,12 +86,10 @@ def convert_example_to_features(example, tokenizer):
 
   outputs = []
   for di, (doc_start, doc_length) in enumerate(doc_spans):
-    tokens = []
     token_to_orig_map = {}
     token_is_max_context = {}
-    segment_ids = []
-    tokens.append("[CLS]")
-    segment_ids.append(0)
+    tokens = ["[CLS]"]
+    segment_ids = [0]
     for token in query_tokens:
       tokens.append(token)
       segment_ids.append(0)

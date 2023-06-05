@@ -42,7 +42,7 @@ class TestConvSpeed(unittest.TestCase):
 
     cnt = 5
     fpt, bpt = 0.0, 0.0
-    for i in range(cnt):
+    for _ in range(cnt):
       et0 = time.time()
       x = torch.randn(128, 1, 28, 28, requires_grad=True)
       x = mp(c2d(x,c1).relu())

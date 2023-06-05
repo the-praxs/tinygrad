@@ -30,7 +30,7 @@ class Thneed:
     # get buffers to save
     self.buffers_to_save = set()
     self.outputs = []
-    for n in nodes.keys():
+    for n in nodes:
       if len(nodes[n]['in_edges']) == 0:
         self.buffers_to_save.add(n)
       if len(nodes[n]['out_edges']) == 0:
@@ -69,34 +69,35 @@ class Thneed:
         o['data'] = weights[ptr:nptr]
         ptr = nptr
 
-      if o['arg_type'] == "image2d_t" or o['arg_type'] == "image1d_t":
+      if o['arg_type'] == "image2d_t":
         tfmt = image_fmt_32 if 'float32' in o and o['float32'] else image_fmt
-        if o['arg_type'] == "image2d_t":
-          if 'buffer_id' in o and o['height'] == 1 and not bufs_loaded[o['buffer_id']]:
-            # hack: use a image1d since we can back that with a buffer
-            buf = cl.Image(CL.cl_ctx, mf.READ_WRITE, tfmt, shape=(o['width'],), buffer=bufs[o['buffer_id']])
-          else:
-            # buffer isn't supported in image2d, copy buffer into image
-            if 'buffer_id' in o and bufs_loaded[o['buffer_id']]:
-              arr = np.zeros(bufs[o['buffer_id']].size // 2, dtype=np.float16)
-              cl.enqueue_copy(q, arr, bufs[o['buffer_id']])
-              buf = cl.Image(CL.cl_ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, tfmt,
-                shape=(o['width'], o['height']), pitches=(o['row_pitch'],), hostbuf=arr)
-            elif o['needs_load']:
-              buf = cl.Image(CL.cl_ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, tfmt,
-                shape=(o['width'], o['height']), pitches=(o['row_pitch'],), hostbuf=o['data'])
-            else:
-              buf = cl.Image(CL.cl_ctx, mf.READ_WRITE, tfmt, shape=(o['width'], o['height']))
+        if 'buffer_id' in o and o['height'] == 1 and not bufs_loaded[o['buffer_id']]:
+          # hack: use a image1d since we can back that with a buffer
+          buf = cl.Image(CL.cl_ctx, mf.READ_WRITE, tfmt, shape=(o['width'],), buffer=bufs[o['buffer_id']])
+        elif 'buffer_id' in o and bufs_loaded[o['buffer_id']]:
+          arr = np.zeros(bufs[o['buffer_id']].size // 2, dtype=np.float16)
+          cl.enqueue_copy(q, arr, bufs[o['buffer_id']])
+          buf = cl.Image(CL.cl_ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, tfmt,
+            shape=(o['width'], o['height']), pitches=(o['row_pitch'],), hostbuf=arr)
+        elif o['needs_load']:
+          buf = cl.Image(CL.cl_ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, tfmt,
+            shape=(o['width'], o['height']), pitches=(o['row_pitch'],), hostbuf=o['data'])
+        else:
+          buf = cl.Image(CL.cl_ctx, mf.READ_WRITE, tfmt, shape=(o['width'], o['height']))
         if o['arg_type'] == "image1d_t":
           assert not o['needs_load']
           assert not bufs_loaded[o['buffer_id']]
           buf = cl.Image(CL.cl_ctx, mf.READ_WRITE, tfmt, shape=(o['width'],), buffer=bufs[o['buffer_id']])
+      elif o['arg_type'] == "image1d_t":
+        tfmt = image_fmt_32 if 'float32' in o and o['float32'] else image_fmt
+        assert not o['needs_load']
+        assert not bufs_loaded[o['buffer_id']]
+        buf = cl.Image(CL.cl_ctx, mf.READ_WRITE, tfmt, shape=(o['width'],), buffer=bufs[o['buffer_id']])
+      elif 'data' in o:
+        buf = cl.Buffer(CL.cl_ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=o['data'])
       else:
-        if 'data' in o:
-          buf = cl.Buffer(CL.cl_ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=o['data'])
-        else:
-          # zero out buffers
-          buf = cl.Buffer(CL.cl_ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=b'\x00'*o['size'])
+        # zero out buffers
+        buf = cl.Buffer(CL.cl_ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=b'\x00'*o['size'])
 
       bufs[o['id']] = buf
       bufs_loaded[o['id']] = 'data' in o
@@ -268,10 +269,8 @@ class Thneed:
       f.write(b''.join(binaries))
 
   def run(self):
-    events = []
     st = time.monotonic()
-    for prg, args in self.cl_cache:
-      events.append(prg.clprg(CL.cl_queue[0], *args))
+    events = [prg.clprg(CL.cl_queue[0], *args) for prg, args in self.cl_cache]
     mt = time.monotonic()
     CL.synchronize()
     et = time.monotonic() - st

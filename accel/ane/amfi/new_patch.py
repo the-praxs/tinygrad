@@ -19,8 +19,6 @@ mytask = libc.mach_task_self()
 ret = libc.task_for_pid(mytask, ctypes.c_int(amfid_pid), ctypes.pointer(task))
 print(amfid_pid, ret, task, mytask)
 
-#myport = libc.mach_task_self()
-
 class vm_region_submap_short_info_data_64(ctypes.Structure):
   _pack_ = 1
   _fields_ = [
@@ -47,13 +45,12 @@ sub_info = vm_region_submap_short_info_data_64()
 depth = 0
 
 c_depth = ctypes.c_uint32(depth)
-for i in range(1):
+for _ in range(1):
   ret = libc.mach_vm_region_recurse(task,
     ctypes.pointer(address), ctypes.pointer(mapsize),
     ctypes.pointer(c_depth), ctypes.pointer(sub_info),
     ctypes.pointer(count))
   print("aslr", hex(ret), hex(address.value), mapsize, count, sub_info.protection)
-  #address.value += mapsize.value
 #exit(0)
 
 patch_address = address.value + 0x8e38

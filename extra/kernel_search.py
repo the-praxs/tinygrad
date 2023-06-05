@@ -25,7 +25,7 @@ def get_interventions(k, winning_interventions=[]):
     if up_axis >= k.first_reduce and up_axis < (k.first_reduce + len(k.group_for_reduce)): continue
     max_up = max(st.shape[up_axis] for st in k.sts)
     if max_up == 1: continue
-    for amount in sorted(list(set([2,4,8,max_up]))):
+    for amount in sorted(list({2, 4, 8, max_up})):
       if amount >= 32: continue
       if not all(st.shape[up_axis] == 1 or st.shape[up_axis]%amount == 0 for st in k.sts): continue
       p3.append((Interventions.UPCAST, (up_axis, amount)))
@@ -61,21 +61,36 @@ def apply_intervention(k, typ, dat):
       up_axis, amount = dat[0], dat[1]
       # no change, we added a dimension
       k.reshape_and_permute(
-        lambda x: list(x[0:up_axis]) + ([x[up_axis]//amount, amount] if x[up_axis] > 1 else [1,1]) + list(x[up_axis+1:]),
-        [i for i in range(k.shape_len+1) if i != up_axis+1] + [up_axis+1])
+          lambda x: list(x[:up_axis]) +
+          ([x[up_axis] // amount, amount]
+           if x[up_axis] > 1 else [1, 1]) + list(x[up_axis + 1:]),
+          [i for i in range(k.shape_len + 1) if i != up_axis + 1] +
+          [up_axis + 1],
+      )
     # drop the last dimension
     k.upcast()
   elif typ == Interventions.SHIFT:
     up_axis, amount, flip = dat[0], dat[1], dat[2]
     k.reshape_and_permute(
-      lambda x: list(x[0:up_axis]) + (([amount, x[up_axis]//amount] if flip else [x[up_axis]//amount, amount]) if x[up_axis] > 1 else [1,1]) + list(x[up_axis+1:]),
-      [up_axis] + [i for i in range(k.shape_len+1) if i != up_axis])
+        lambda x: list(x[:up_axis]) +
+        (([amount, x[up_axis] // amount]
+          if flip else [x[up_axis] // amount, amount])
+         if x[up_axis] > 1 else [1, 1]) + list(x[up_axis + 1:]),
+        [up_axis] + [i for i in range(k.shape_len + 1) if i != up_axis],
+    )
   elif typ == Interventions.REDUCE:
     up_axis, amount = dat[0], dat[1]
     # no change, we added a dimension
     k.reshape_and_permute(
-      lambda x: list(x[0:up_axis]) + ([x[up_axis]//amount, amount] if x[up_axis] > 1 else [1,1]) + list(x[up_axis+1:]),
-      [i for i in range(k.first_reduce) if i != up_axis+1] + [up_axis+1] + [i for i in range(k.first_reduce, k.shape_len+1) if i != up_axis+1])
+        lambda x: list(x[:up_axis]) +
+        ([x[up_axis] // amount, amount]
+         if x[up_axis] > 1 else [1, 1]) + list(x[up_axis + 1:]),
+        [i for i in range(k.first_reduce) if i != up_axis + 1] +
+        [up_axis + 1] + [
+            i
+            for i in range(k.first_reduce, k.shape_len + 1) if i != up_axis + 1
+        ],
+    )
     k.group_for_reduce.append(amount)
   k.simplify_ones()
   k.simplify_merge_adjacent()
@@ -83,7 +98,7 @@ def apply_intervention(k, typ, dat):
 def run_and_time(k,cnt=3,local_override=None):
   prog = k.codegen()
   ret = []
-  for i in range(cnt):
+  for _ in range(cnt):
     t1 = time.monotonic_ns()
     if local_override: prog.local_work_size = local_override
     e = prog(*k.bufs)
@@ -93,7 +108,6 @@ def run_and_time(k,cnt=3,local_override=None):
     #print(*[f"{(x-t1)*1e-3:7.2f} us" for x in [t1, t2, t3, t4]])  # TODO: this may be wrong on non OS X
     #assert t1 < t2 < t3 < t4, "timings not in order"
     ret.append(t3-t2)
-    #ret.append(t4-t1)
   return min(ret)
 
 def search_one(ast, winning_interventions=[], debug=False):
@@ -114,8 +128,6 @@ def search_one(ast, winning_interventions=[], debug=False):
       if debug: print(f"{options[-1][1]} : {options[-1][0]*1e-3:.2f}")
     except Exception:
       if debug: print(int, "FAILED")
-      #traceback.print_exc()
-      pass
   baseline = options[0]
   options = sorted(options, key=lambda x: x[0]*x[2])
   best = options[0]
@@ -128,7 +140,7 @@ def apply_optimization(k, ast, max_interventions=1, cache=True):
   from extra.kernel_search import search_one, apply_intervention
   if k.key not in intervention_cache or cache == False:
     winning_interventions = []
-    for i in range(max_interventions):   # NOTE: multiple interventions is breaking the ASTs
+    for _ in range(max_interventions):
       oo = search_one(ast, winning_interventions)
       if oo[1] is None: break
       winning_interventions.append(oo[1])
@@ -142,8 +154,9 @@ def randomize_buffers(ast):
   # before testing, we need to fill the buffers with randomness
   bufs = get_buffers(ast)
   for b in bufs:
-    randomness = np.random.default_rng().standard_normal(size=b._base_shape, dtype=np.float32)
-    if b._buf is not None: b._buf.copyin(randomness)
+    if b._buf is not None:
+      randomness = np.random.default_rng().standard_normal(size=b._base_shape, dtype=np.float32)
+      b._buf.copyin(randomness)
 
 def one(ast, winning_interventions, local_override=None):
   randomize_buffers(ast)
@@ -165,7 +178,7 @@ def search(ast, start_interventions=[], depth=10):
   for w in winning_interventions: apply_intervention(k, *w)
   best_time = baseline = run_and_time(k)
 
-  for i in range(depth):
+  for _ in range(depth):
     print(winning_interventions)
     oo = search_one(ast, winning_interventions, True)
     print(oo)
@@ -175,7 +188,7 @@ def search(ast, start_interventions=[], depth=10):
 
   # run best
   print(f"winning interventions {winning_interventions}")
-  for i in range(3):
+  for _ in range(3):
     k = CLASTKernel(ast)
     for w in winning_interventions: apply_intervention(k, *w)
     k.codegen()(*k.bufs)
@@ -304,9 +317,10 @@ if __name__ == "__main__":
     op0 = LazyOp(BinaryOps.MUL, (buf0,buf1,), None)
     op1 = LazyOp(ReduceOps.SUM, (op0,), (1, 1, N, N, 1, 1, 1, 1))
     ast = LazyOp(MovementOps.RESHAPE, (op1,), (N, N))
-    ii = []
-    ii.append((Interventions.SHIFT, (1, 8, False)))
-    ii.append((Interventions.SHIFT, (1, 8, False)))
+    ii = [
+        (Interventions.SHIFT, (1, 8, False)),
+        (Interventions.SHIFT, (1, 8, False)),
+    ]
     #ii.append((Interventions.UPCAST, (1, 4)))
     #ii.append((Interventions.UPCAST, (0, 4)))
     one(ast, ii, local_override=[8,8,1])

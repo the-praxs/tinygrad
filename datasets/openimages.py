@@ -68,7 +68,8 @@ def extract_dims(path): return Image.open(path).size[::-1]
 def export_to_coco(class_map, annotations, image_list, dataset_path, output_path, classes=MLPERF_CLASSES):
   output_path.parent.mkdir(parents=True, exist_ok=True)
   cats = [{"id": i, "name": c, "supercategory": None} for i, c in enumerate(classes)]
-  categories_map = pd.DataFrame([(i, c) for i, c in enumerate(classes)], columns=["category_id", "category_name"])
+  categories_map = pd.DataFrame(list(enumerate(classes)),
+                                columns=["category_id", "category_name"])
   class_map = class_map.merge(categories_map, left_on="DisplayName", right_on="category_name", how="inner")
   annotations = annotations[np.isin(annotations["ImageID"], image_list)]
   annotations = annotations.merge(class_map, on="LabelName", how="inner")
@@ -85,8 +86,22 @@ def export_to_coco(class_map, annotations, image_list, dataset_path, output_path
   for i, row in annotations.iterrows():
     xmin, ymin, xmax, ymax, img_w, img_h = [row[k] for k in ["XMin", "YMin", "XMax", "YMax", "width", "height"]]
     x, y, w, h = xmin * img_w, ymin * img_h, (xmax - xmin) * img_w, (ymax - ymin) * img_h
-    coco_annot = {"id": int(i) + 1, "image_id": int(row["image_id"] + 1), "category_id": int(row["category_id"]), "bbox": [x, y, w, h], "area": w * h}
-    coco_annot.update({k: row[k] for k in ["IsOccluded", "IsInside", "IsDepiction", "IsTruncated", "IsGroupOf"]})
+    coco_annot = {
+        "id": int(i) + 1,
+        "image_id": int(row["image_id"] + 1),
+        "category_id": int(row["category_id"]),
+        "bbox": [x, y, w, h],
+        "area": w * h,
+    } | {
+        k: row[k]
+        for k in [
+            "IsOccluded",
+            "IsInside",
+            "IsDepiction",
+            "IsTruncated",
+            "IsGroupOf",
+        ]
+    }
     coco_annot["iscrowd"] = int(row["IsGroupOf"])
     annots.append(coco_annot)
 
@@ -97,8 +112,8 @@ def export_to_coco(class_map, annotations, image_list, dataset_path, output_path
 
 def get_image_list(class_map, annotations, classes=MLPERF_CLASSES):
   labels = class_map[np.isin(class_map["DisplayName"], classes)]["LabelName"]
-  image_ids = annotations[np.isin(annotations["LabelName"], labels)]["ImageID"].unique()
-  return image_ids
+  return annotations[np.isin(annotations["LabelName"],
+                             labels)]["ImageID"].unique()
 
 def download_image(bucket, image_id, data_dir):
   try:
@@ -126,7 +141,7 @@ def fetch_openimages(output_fn):
   with concurrent.futures.ThreadPoolExecutor() as executor:
     futures = [executor.submit(download_image, bucket, image_id, data_dir) for image_id in image_list]
     for future in (t := tqdm(concurrent.futures.as_completed(futures), total=len(image_list))):
-      t.set_description(f"Downloading images")
+      t.set_description("Downloading images")
       future.result()
 
   print("Converting annotations to COCO format...")
