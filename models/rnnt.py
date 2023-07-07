@@ -141,8 +141,8 @@ class LSTM:
 
   def do_step(self, x, hc):
     new_hc = [x]
-    for i, cell in enumerate(self.cells):
-      new_hc.append(cell(new_hc[i][:x.shape[0]], hc[i]))
+    new_hc.extend(
+        cell(new_hc[i][:x.shape[0]], hc[i]) for i, cell in enumerate(self.cells))
     return Tensor.stack(new_hc[1:]).realize()
 
 
