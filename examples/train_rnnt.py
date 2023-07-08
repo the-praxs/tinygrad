@@ -105,7 +105,7 @@ if __name__ == "__main__":
   LABELS = [" ", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "'"]
 
   optim.zero_grad()
-  for epoch in range(100):
+  for _ in range(100):
     for X, Y, y_raw in iterate(val=False, bs=1):
       x, y = Tensor(X[0]), Tensor(Y)
       out = mdl(x, y)
