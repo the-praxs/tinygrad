@@ -87,7 +87,7 @@ class RNNTLoss(Function):
     loss, grads = rnnt_loss_batch(x, x_lens, y, y_lens) 
     self.grads = grads
 
-    return LazyBuffer.fromCPU(LazyNumpyArray(loss, loss.shape, loss.dtype), x.device)
+    return (loss, loss.shape, loss.dtype)
 
   def backward(self, grad_output):
     return LazyBuffer.fromCPU(LazyNumpyArray(self.grads, self.grads.shape, self.grads.dtype), grad_output.device), None, None, None
@@ -106,7 +106,7 @@ if __name__ == "__main__":
 
   optim.zero_grad()
   for epoch in range(100):
-    for X, Y, y_raw in iterate(val=False, bs=1):
+    for X, Y, y_raw in iterate(dataset="train-clean-100", val=False, bs=1):
       x, y = Tensor(X[0]), Tensor(Y)
       out = mdl(x, y)
 
@@ -120,7 +120,7 @@ if __name__ == "__main__":
       print("forward done")
       loss = RNNTLoss.apply(out.log_softmax(), Tensor([10, 10, 10, 10]), y, Tensor([10, 10, 10, 10])).mean() # Why pass tensor [10,10,10,10]?
       print("loss done")
-      loss.backward()
+      loss[0].backward()
       print("backward done")
       optim.step()
       print("step done")

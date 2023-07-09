@@ -7,6 +7,7 @@ import hashlib
 import tarfile
 import random
 import subprocess
+import soundfile
 
 from pathlib import Path
 from tqdm import tqdm
@@ -260,10 +261,7 @@ def feature_extract(x, x_lens):
 
 
 def load_wav(file, training=False):
-	if training: 
-		sr = random.randint(13800, 18400)
-	sr = sr or 16000
-	sample = soundfile.read(file, samplerate=sr)[0].astype(np.float32)
+	sample = soundfile.read(file)[0].astype(np.float32)
 	return sample, sample.shape[0]
 
 def remove_silence(path):
@@ -283,7 +281,7 @@ def remove_silence(path):
 	    print(stderr)
 
 def iterate(dataset, bs=1, start=0, val=True):
-	with open(BASEDIR / f"{dataset}.json") as f:
+	with open(BASEDIR / "LibriSpeech" / f"{dataset}.json") as f:
 		ci = json.load(f)
 	if val:
 		print(f"Number of samples in the dataset: {len(ci)}")
