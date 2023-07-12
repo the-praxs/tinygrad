@@ -1,57 +1,62 @@
 from datasets.librispeech import iterate
-# from tinygrad.helpers import LazyNumpyArray
-from tinygrad.lazy import LazyBuffer
 from tinygrad.tensor import Tensor, Function
 from tinygrad.nn.optim import LAMB, get_parameters
 import numpy as np
+import time
 
 from models.rnnt import RNNT
 
-def rnnt_loss_forward(x: Tensor, y: Tensor, blank=28):
+def rnnt_loss_forward(x, y, blank=28):
   T, U, _ = x.shape
 
-  alphas = Tensor.zeros((T, U))
+  # TO DO: update this to tensors. Need to work around item assignment.
+  alphas = np.zeros((T,U), dtype=np.int32)
   alphas[1,0] = 1
 
   for t in range(1, T):
-    alphas[t, 0] = alphas[t - 1, 0] + x[t - 1, 0, blank]
+    alphas[t, 0] = alphas[t - 1, 0] + x[t - 1, 0, blank].numpy()
 
   for u in range(1, U):
-    alphas[0, u] = alphas[0, u - 1] + x[0, u - 1, y[u - 1]]
+    alphas[0, u] = alphas[0, u - 1] + x[0, u - 1, int(y[u - 1].numpy())].numpy()
 
   for t in range(1, T):
     for u in range(1, U):
-      no_emit = alphas[t - 1, u] + x[t - 1, u, blank]
-      emit = alphas[t, u - 1] + x[t, u - 1, y[u - 1]]
-      alphas[t, u] = (emit.exp() + no_emit.exp()).log()
+      start = time.time()
+      print(f"{t*U + u}/{T*U}")
+      no_emit = alphas[t - 1, u] + x[t - 1, u, blank].numpy()
+      emit = alphas[t, u - 1] + x[t, u - 1, int(y[u - 1].numpy())].numpy()
+      alphas[t, u] = np.log(np.exp(emit) + np.exp(no_emit))
+      print(f"Time: {time.time() - start}")
 
-  log_likelihood = alphas[T - 1, U - 1] + x[T - 1, U - 1, blank]
+  log_likelihood = alphas[T - 1, U - 1] + x[T - 1, U - 1, blank].numpy()
   return alphas, -log_likelihood
 
-def rnnt_loss_backward(x: Tensor, y: Tensor, blank=28):
+def rnnt_loss_backward(x, y, blank=28):
   T, U, _ = x.shape
 
-  betas = Tensor.zeros((T, U))
-  betas[T - 1, U - 1] = x[T - 1, U - 1, blank]
+  # TO DO: update this to tensors.
+  betas = np.zeros((T, U))
+  betas[T - 1, U - 1] = x[T - 1, U - 1, blank].numpy()
 
   for t in reversed(range(T - 1)):
-    betas[t, U - 1] = betas[t + 1, U - 1] + x[t, U - 1, blank]
+    betas[t, U - 1] = betas[t + 1, U - 1] + x[t, U - 1, blank].numpy()
 
   for u in reversed(range(U - 1)):
-    betas[T - 1, u] = betas[T - 1, u + 1] + x[T - 1, u, y[u]]
+    betas[T - 1, u] = betas[T - 1, u + 1] + x[T - 1, u, y[u].numpy()].numpy()
 
   for t in reversed(range(T - 1)):
     for u in reversed(range(U - 1)):
-      no_emit = betas[t + 1, u] + x[t, u, blank]
-      emit = betas[t, u + 1] + x[t, u, y[u]]
-      betas[t, u] = (emit.exp() + no_emit.exp()).log()
+      no_emit = betas[t + 1, u] + x[t, u, blank].numpy()
+      emit = betas[t, u + 1] + x[t, u, y[u].numpy()].numpy()
+      betas[t, u] = np.log(np.exp(emit) + np.exp(no_emit))
 
   return betas
 
-def rnnt_loss_grad(x: Tensor, alphas: Tensor, betas: Tensor, y: Tensor, blank=28):
+def rnnt_loss_grad(x, alphas, betas, y, blank=28):
   T, U, _ = x.shape
 
-  grads = Tensor.full(x.shape, -np.inf)
+  # TO DO: update this to tensors.
+  grads = np.full(x.shape, -np.inf)
   log_likelihood = betas[0, 0]
 
   grads[T - 1, U - 1, blank] = alphas[T - 1, U - 1]
@@ -60,7 +65,7 @@ def rnnt_loss_grad(x: Tensor, alphas: Tensor, betas: Tensor, y: Tensor, blank=28
   for u, l in enumerate(y):
     grads[:, u, l] = alphas[:, u] + betas[:, u + 1]
 
-  grads = -((grads + x - log_likelihood).exp())
+  grads = -(np.exp(grads + x - log_likelihood))
 
   return grads
 
@@ -74,9 +79,10 @@ def rnnt_loss_batch(x, x_lens, y, y_lens, blank=28):
   grads = np.zeros_like(x) # Need?
   losses = []
   for b in range(x.shape[0]):
-    t = int(x_lens[b])
-    u = int(y_lens[b]) + 1
-    loss, grad = rnnt_loss(x[b, :t, :u, :], y[b, :u - 1], blank)
+    # TO DO: check if realize is required
+    t = int(Tensor(x_lens)[b].numpy()/2)
+    u = int(Tensor(y_lens)[b].numpy())
+    loss, grad = rnnt_loss(Tensor(x)[b, :t, :u, :], Tensor(y)[b, :u], blank)
     losses.append(loss)
     grads[b, :t, :u, :] = grad
   return Tensor(losses, dtype=np.float32), grads
@@ -88,10 +94,10 @@ class RNNTLoss(Function):
     loss, grads = rnnt_loss_batch(x, x_lens, y, y_lens) 
     self.grads = grads
 
-    return LazyBuffer.fromCPU(LazyNumpyArray(loss, loss.shape, loss.dtype), x.device)
+    return Tensor(loss, x.device, loss.dtype)
 
   def backward(self, grad_output):
-    return LazyBuffer.fromCPU(LazyNumpyArray(self.grads, self.grads.shape, self.grads.dtype), grad_output.device), None, None, None
+    return Tensor(self.grads, grad_output.device, self.grads.dtype), None, None, None
 
 if __name__ == "__main__":
   # Tinygrad set flags
@@ -109,9 +115,9 @@ if __name__ == "__main__":
   for epoch in range(100):
     # TO DO: update to training data set.
     for X, Y, y_raw in iterate(dataset='dev-clean', val=False, bs=1):
-      x, y = Tensor(X[0]), Tensor(Y)
+      x, x_lens, y = Tensor(X[0]), Tensor(X[1]), Tensor(Y)
       out = mdl(x, y)
-      tt = mdl.decode(Tensor(X[0]), Tensor(X[1]))
+      tt = mdl.decode(x, x_lens)
       for n, t in enumerate(tt):
         tnp = np.array(t)
         print(["".join([LABELS[int(tnp[i])] for i in range(tnp.shape[0])])])
@@ -119,7 +125,8 @@ if __name__ == "__main__":
 
       # print(out.shape)
       print("forward done")
-      loss = RNNTLoss.apply(out.log_softmax(), Tensor([10, 10, 10, 10]), y, Tensor([10, 10, 10, 10])).mean() # Why pass tensor [10,10,10,10]?
+      # TO DO: update y_lens + set blank
+      loss = RNNTLoss.apply(out.log_softmax(), x_lens, y, Tensor([y.shape[1]])).mean() # Why pass tensor [10,10,10,10]?
       print("loss done")
       loss.backward()
       print("backward done")
